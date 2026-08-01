@@ -1481,7 +1481,13 @@
     <header class="top">
       <h1>Dashboard Setters <span>· Factor Studios</span></h1>
       <div style="display:flex;align-items:center;gap:12px;">
-        <div class="theme-toggle" id="refreshDataBtn" title="Volver a traer los datos del Sheet ahora mismo"><span id="refreshIcon">🔄</span> <span>Actualizar</span></div>
+        <div class="theme-toggle" id="refreshDataBtn" title="Volver a traer los datos del Sheet ahora mismo">
+          <span id="refreshIcon">🔄</span> <span>Actualizar</span>
+          <svg id="refreshRing" width="16" height="16" viewBox="0 0 16 16" style="margin-left:2px;flex-shrink:0;" title="Tiempo hasta la próxima actualización automática (cada 1 min)">
+            <circle cx="8" cy="8" r="6.5" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"></circle>
+            <circle id="refreshRingProgress" cx="8" cy="8" r="6.5" fill="none" stroke="#7c6cf0" stroke-width="2" stroke-linecap="round" transform="rotate(-90 8 8)" stroke-dasharray="40.84" stroke-dashoffset="40.84"></circle>
+          </svg>
+        </div>
         <div class="theme-toggle" id="themeToggle"><span id="themeIcon">🌙</span> <span id="themeLabel">Oscuro</span></div>
         <div class="live-badge"><span class="live-dot"></span> Datos en vivo</div>
       </div>
@@ -2223,10 +2229,18 @@
     getPerfilesPublicos(); // precarga en segundo plano para que "Ver perfil" abra al instante
   });
 
-  document.getElementById('refreshDataBtn').addEventListener('click', async () => {
+  // ===== Auto-actualización cada 1 minuto (Sheet + Ranking "Hoy" en vivo) =====
+  // Refactorizado a una función aparte para poder llamarla tanto desde el
+  // click de "Actualizar" como sola, desde el intervalo de abajo — mismo
+  // código, sin duplicar nada.
+  const AUTO_REFRESH_MS = 60000;
+  let lastRefreshAt = Date.now();
+
+  async function refreshAllData(opts){
+    const silent = opts && opts.silent;
     const btn = document.getElementById('refreshDataBtn');
     const icon = document.getElementById('refreshIcon');
-    if(btn.classList.contains('refreshing')) return; // evita doble click mientras ya está actualizando
+    if(btn.classList.contains('refreshing')) return; // evita superponerse si ya hay una en curso
     btn.classList.add('refreshing');
     icon.textContent = '⏳';
 
@@ -2236,18 +2250,41 @@
     } catch(e){}
 
     try{
-      await loadLiveData();
+      await loadLiveData(); // ya redibuja Tracker, Ranking (incluye "Hoy" en vivo si esa es la pestaña activa) y el gráfico de Métricas
       perfilesPublicosCache = null; // también refrescamos fotos/apodos del equipo
       await getPerfilesPublicos();
       updatePerfilPage();
-      showToast('Datos actualizados desde el Sheet');
+      if(!silent) showToast('Datos actualizados desde el Sheet');
     } catch(err){
-      showToast('No se pudo actualizar. Probá de nuevo en un momento.');
+      if(!silent) showToast('No se pudo actualizar. Probá de nuevo en un momento.');
     } finally {
       btn.classList.remove('refreshing');
       icon.textContent = '🔄';
+      lastRefreshAt = Date.now();
     }
-  });
+  }
+
+  document.getElementById('refreshDataBtn').addEventListener('click', () => refreshAllData({ silent: false }));
+
+  // El anillo de al lado de "Actualizar" es solo visual (no dispara nada
+  // por sí mismo): se rellena de a poco durante el minuto y se vacía de
+  // golpe apenas termina un refresh (manual o automático), como una
+  // cuenta regresiva circular.
+  const REFRESH_RING_CIRCUMFERENCE = 40.84;
+  const refreshRingEl = document.getElementById('refreshRingProgress');
+  function tickRefreshRing(){
+    if(!refreshRingEl) return;
+    const elapsed = Date.now() - lastRefreshAt;
+    const pct = Math.min(1, elapsed / AUTO_REFRESH_MS);
+    refreshRingEl.setAttribute('stroke-dashoffset', String(REFRESH_RING_CIRCUMFERENCE * (1 - pct)));
+  }
+  setInterval(tickRefreshRing, 250);
+
+  // El refresh automático es silencioso (sin toast) para no interrumpir
+  // cada 1 minuto — el anillo ya avisa visualmente que se está por
+  // actualizar, y el toast queda reservado para cuando alguien lo pide
+  // a mano con el botón.
+  setInterval(() => refreshAllData({ silent: true }), AUTO_REFRESH_MS);
 
   cambiarMesLink.addEventListener('click', () => {
     appShell.classList.remove('show');
