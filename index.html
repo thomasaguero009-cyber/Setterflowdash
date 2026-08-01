@@ -1539,6 +1539,10 @@
             <div class="rank-row"><div class="rank-pos">4°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--c-valeria)"></div></div><div class="rank-val">$0</div></div>
           </div>
         </div>
+        <div class="rank-panel" id="rank-agendas-hoy-panel" style="display:none;">
+          <h3>📅 Por Agendas (hoy, en vivo)</h3>
+          <div id="rank-agendas-hoy-body"></div>
+        </div>
       </div>
 
       <div class="section-label">📈 Métricas — Tendencia diaria</div>
@@ -4370,23 +4374,29 @@
 
   function renderRankingPanels(period){
     const titleEl = document.getElementById('rank-left-title');
+    const hoyPanel = document.getElementById('rank-agendas-hoy-panel');
 
     if(period === 'hoy'){
       titleEl.textContent = '🎯 Por Leads (hoy, en vivo)';
+      hoyPanel.style.display = 'block';
       document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+      document.getElementById('rank-agendas-hoy-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       fetchHoyLive().then(data => {
         const totals = {};
-        SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0 }; });
+        SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0, agendas: (data[k]&&data[k].agendas)||0 }; });
         renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
         renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
+        renderRanked('rank-agendas-hoy-body', totals, 'agendas', fmtInt);
       }).catch(err => {
         document.getElementById('rank-agendas-body').innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
         document.getElementById('rank-cash-body').innerHTML = '';
+        document.getElementById('rank-agendas-hoy-body').innerHTML = '';
       });
       return;
     }
 
+    hoyPanel.style.display = 'none';
     titleEl.textContent = '🏆 Por Agendas';
     let totals;
     if(period === 'semanal') totals = computeWeekTotals();
@@ -4444,10 +4454,11 @@
   });
 
   // "Leads" no tiene serie histórica guardada (no se carga a mano día a
-  // día como Agendas/Cash) — en vez de un gráfico de tendencia, muestra el
-  // valor de HOY en vivo desde Hyros, igual que el botón "Hoy" del
-  // Ranking. Usa el mismo fetchHoyLive()/caché de 60s, así no duplica
-  // pedidos si el usuario ya miró "Hoy" en el Ranking hace poco.
+  // día como Agendas/Cash) — en vez de un gráfico de tendencia, muestra
+  // los 3 valores de HOY en vivo desde Hyros (leads, facturación y
+  // agendas/calls), igual que el botón "Hoy" del Ranking. Usa el mismo
+  // fetchHoyLive()/caché de 60s, así no duplica pedidos si el usuario ya
+  // miró "Hoy" en el Ranking hace poco.
   function drawLeadsHoyPanel(){
     document.getElementById('trendChart').style.display = 'none';
     const panel = document.getElementById('leadsHoyPanel');
@@ -4455,20 +4466,29 @@
     panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
     fetchHoyLive().then(data => {
       const totals = {};
-      SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0 }; });
-      const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b].leads-totals[a].leads);
-      const max = totals[sorted[0]].leads || 1;
+      SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0, agendas: (data[k]&&data[k].agendas)||0 }; });
       const posLabels = ['1°','2°','3°','4°'];
-      panel.innerHTML = `<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">🎯 Leads de hoy, en vivo (Hyros) — no es un histórico, solo el total de hoy hasta este momento.</div>` +
-        sorted.map((k,i) => `
-          <div class="rank-row ${i===0?'gold-row':''}">
-            <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
-            <div class="rank-dot" style="background:var(--c-${k})"></div>
-            <div class="rank-name">${getDisplayName(k)}</div>
-            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k].leads/max*100)}%;background:var(--c-${k})"></div></div>
-            <div class="rank-val">${fmtInt(totals[k].leads)}</div>
-          </div>
-        `).join('');
+
+      function bloque(titulo, metric, fmt){
+        const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
+        const max = totals[sorted[0]][metric] || 1;
+        return `<div style="font-size:13px;font-weight:700;margin:14px 0 6px;">${titulo}</div>` +
+          sorted.map((k,i) => `
+            <div class="rank-row ${i===0?'gold-row':''}">
+              <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
+              <div class="rank-dot" style="background:var(--c-${k})"></div>
+              <div class="rank-name">${getDisplayName(k)}</div>
+              <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:var(--c-${k})"></div></div>
+              <div class="rank-val">${fmt(totals[k][metric])}</div>
+            </div>
+          `).join('');
+      }
+
+      panel.innerHTML =
+        '<div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">📡 Hoy, en vivo (Hyros) — no es un histórico, solo el total de hoy hasta este momento.</div>' +
+        bloque('🎯 Leads', 'leads', fmtInt) +
+        bloque('💰 Facturación', 'cash', fmtMoney) +
+        bloque('📅 Agendas', 'agendas', fmtInt);
     }).catch(err => {
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
     });
