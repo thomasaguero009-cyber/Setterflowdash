@@ -1564,7 +1564,6 @@
         <div class="chart-wrap">
           <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
-          <div id="leadsHoyPanel" style="display:none;"></div>
         </div>
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
@@ -1905,6 +1904,7 @@
             <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-thomi-cash" type="number" value="0"></div>
             <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-thomi-horas" type="number" step="0.1" value="0"></div>
             <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-thomi-agendas" type="number" value="0"></div>
+            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-thomi-leads" type="number" value="0"></div>
             <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
           </div>
 
@@ -1918,6 +1918,7 @@
             <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-flor-cash" type="number" value="0"></div>
             <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-flor-horas" type="number" step="0.1" value="0"></div>
             <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-flor-agendas" type="number" value="0"></div>
+            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-flor-leads" type="number" value="0"></div>
             <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
           </div>
 
@@ -1931,6 +1932,7 @@
             <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-valeria-cash" type="number" value="0"></div>
             <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-valeria-horas" type="number" step="0.1" value="0"></div>
             <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-valeria-agendas" type="number" value="0"></div>
+            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-valeria-leads" type="number" value="0"></div>
             <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
           </div>
 
@@ -1944,6 +1946,7 @@
             <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-franco-cash" type="number" value="0"></div>
             <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-franco-horas" type="number" step="0.1" value="0"></div>
             <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-franco-agendas" type="number" value="0"></div>
+            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-franco-leads" type="number" value="0"></div>
             <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
           </div>
         </div>
@@ -2337,10 +2340,13 @@
           if(!info) return;
           const cashEl = document.getElementById(`m-${k}-cash`);
           if(cashEl) cashEl.value = Math.round(info.cash * 100) / 100;
+          const leadsEl = document.getElementById(`m-${k}-leads`);
+          if(leadsEl) leadsEl.value = info.leads || 0;
+          const agendasEl = document.getElementById(`m-${k}-agendas`);
+          if(agendasEl) agendasEl.value = info.agendas || 0;
         });
-        const resumen = SETTER_KEYS.map(k => `${getDisplayName(k)}: ${data.data[k] ? data.data[k].leads : 0} leads`).join(' · ');
         statusEl.textContent = '✅ Traído de Hyros';
-        showToast(`Facturación de ${fecha} cargada en los campos de Cash. Leads del día — ${resumen}. Revisá y apretá Guardar.`);
+        showToast(`Cash, Leads y Agendas de ${fecha} cargados desde Hyros. Revisá y apretá Guardar para dejarlo guardado.`);
       } else {
         statusEl.textContent = '⚠️ Error con Hyros';
         showToast('No se pudo traer de Hyros: ' + (data && data.message ? data.message : 'respuesta inesperada'));
@@ -2370,7 +2376,8 @@
         seguimientos: parseFloat(document.getElementById(`m-${k}-seg`).value) || 0,
         cash: parseFloat(document.getElementById(`m-${k}-cash`).value) || 0,
         horas: parseFloat(document.getElementById(`m-${k}-horas`).value) || 0,
-        agendas: parseFloat(document.getElementById(`m-${k}-agendas`).value) || 0
+        agendas: parseFloat(document.getElementById(`m-${k}-agendas`).value) || 0,
+        leads: parseFloat(document.getElementById(`m-${k}-leads`).value) || 0
       };
     });
 
@@ -3787,7 +3794,7 @@
         const d = parseDDMMYYYY(s.dates[i]);
         if(d > today){ cutIdx = i; break; }
       }
-      ['dates','seguimientos','cash','horas','agendas'].forEach(field => {
+      ['dates','seguimientos','cash','horas','agendas','leads'].forEach(field => {
         s[field] = s[field].slice(0, cutIdx);
       });
     });
@@ -3860,10 +3867,11 @@
       seg:   header.findIndex(h => h.includes('seguim')),
       cash:  header.findIndex(h => h.includes('cash')),
       horas: header.findIndex(h => h.includes('hora')),
-      agendas: header.findIndex(h => h.includes('agenda'))
+      agendas: header.findIndex(h => h.includes('agenda')),
+      leads: header.findIndex(h => h.includes('lead'))
     };
 
-    const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [] };
+    const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [] };
     for(let i=headerRow+1;i<rows.length;i++){
       const r = rows[i];
       const fecha = r[idx.fecha];
@@ -3878,6 +3886,7 @@
       out.cash.push(parseNum(r[idx.cash]));
       out.horas.push(parseNum(r[idx.horas]));
       out.agendas.push(parseNum(r[idx.agendas]));
+      out.leads.push(idx.leads > -1 ? parseNum(r[idx.leads]) : 0);
     }
     return out.dates.length ? { key: setterKey, series: out } : null;
   }
@@ -3979,10 +3988,10 @@
   function buildDemoData(){
     const dates = Array.from({length:30}, (_,i) => String(i+1));
     setterSeries = {
-      thomi:   { dates, seguimientos: demoSeries(2,8,2),  cash: demoSeries(0,150,10), horas: demoSeries(4,1,1), agendas: demoSeries(3,20,3) },
-      flor:    { dates, seguimientos: demoSeries(2,6,2),  cash: demoSeries(0,400,20), horas: demoSeries(3,1,1), agendas: demoSeries(6,45,6) },
-      valeria: { dates, seguimientos: demoSeries(1,5,2),  cash: demoSeries(0,0,0),    horas: demoSeries(3,1,1), agendas: demoSeries(3,10,3) },
-      franco:  { dates, seguimientos: demoSeries(2,7,2),  cash: demoSeries(0,10,3),   horas: demoSeries(2,1,1), agendas: demoSeries(4,15,4) }
+      thomi:   { dates, seguimientos: demoSeries(2,8,2),  cash: demoSeries(0,150,10), horas: demoSeries(4,1,1), agendas: demoSeries(3,20,3), leads: demoSeries(5,30,5) },
+      flor:    { dates, seguimientos: demoSeries(2,6,2),  cash: demoSeries(0,400,20), horas: demoSeries(3,1,1), agendas: demoSeries(6,45,6), leads: demoSeries(8,60,8) },
+      valeria: { dates, seguimientos: demoSeries(1,5,2),  cash: demoSeries(0,0,0),    horas: demoSeries(3,1,1), agendas: demoSeries(3,10,3), leads: demoSeries(4,20,4) },
+      franco:  { dates, seguimientos: demoSeries(2,7,2),  cash: demoSeries(0,10,3),   horas: demoSeries(2,1,1), agendas: demoSeries(4,15,4), leads: demoSeries(5,25,5) }
     };
   }
 
@@ -4453,56 +4462,9 @@
     });
   });
 
-  // "Leads" no tiene serie histórica guardada (no se carga a mano día a
-  // día como Agendas/Cash) — en vez de un gráfico de tendencia, muestra
-  // los 3 valores de HOY en vivo desde Hyros (leads, facturación y
-  // agendas/calls), igual que el botón "Hoy" del Ranking. Usa el mismo
-  // fetchHoyLive()/caché de 60s, así no duplica pedidos si el usuario ya
-  // miró "Hoy" en el Ranking hace poco.
-  function drawLeadsHoyPanel(){
-    document.getElementById('trendChart').style.display = 'none';
-    const panel = document.getElementById('leadsHoyPanel');
-    panel.style.display = 'block';
-    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-    fetchHoyLive().then(data => {
-      const totals = {};
-      SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0, agendas: (data[k]&&data[k].agendas)||0 }; });
-      const posLabels = ['1°','2°','3°','4°'];
-
-      function bloque(titulo, metric, fmt){
-        const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
-        const max = totals[sorted[0]][metric] || 1;
-        return `<div style="font-size:13px;font-weight:700;margin:14px 0 6px;">${titulo}</div>` +
-          sorted.map((k,i) => `
-            <div class="rank-row ${i===0?'gold-row':''}">
-              <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
-              <div class="rank-dot" style="background:var(--c-${k})"></div>
-              <div class="rank-name">${getDisplayName(k)}</div>
-              <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:var(--c-${k})"></div></div>
-              <div class="rank-val">${fmt(totals[k][metric])}</div>
-            </div>
-          `).join('');
-      }
-
-      panel.innerHTML =
-        '<div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">📡 Hoy, en vivo (Hyros) — no es un histórico, solo el total de hoy hasta este momento.</div>' +
-        bloque('🎯 Leads', 'leads', fmtInt) +
-        bloque('💰 Facturación', 'cash', fmtMoney) +
-        bloque('📅 Agendas', 'agendas', fmtInt);
-    }).catch(err => {
-      panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
-    });
-  }
-
   function drawChart(){
     const svg = document.getElementById('trendChart');
-    const leadsPanel = document.getElementById('leadsHoyPanel');
-    if(currentMetric === 'leads'){
-      drawLeadsHoyPanel();
-      return;
-    }
     svg.style.display = '';
-    leadsPanel.style.display = 'none';
     svg.innerHTML = '';
     svg.classList.remove('fx-refade');
     void svg.offsetWidth;
