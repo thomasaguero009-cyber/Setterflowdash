@@ -467,6 +467,7 @@
   .rank-panel{ background: var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
   .rank-panel h3{ font-size:15px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
   .rank-row{ display:flex; align-items:center; gap:14px; padding: 11px 0; }
+  .rank-loading{ font-size:13px; color:var(--text-dim); padding:14px 0; }
   .rank-row.gold-row{
     position:relative; overflow:hidden;
     background: linear-gradient(90deg, rgba(245,197,99,0.22), rgba(245,197,99,0.06));
@@ -1517,10 +1518,11 @@
         <div class="rt-btn active" data-rank="mensual">Mensual</div>
         <div class="rt-btn" data-rank="semanal">Semanal</div>
         <div class="rt-btn" data-rank="ayer">Ayer</div>
+        <div class="rt-btn" data-rank="hoy">Hoy</div>
       </div>
       <div class="rank-grid">
         <div class="rank-panel">
-          <h3>🏆 Por Agendas</h3>
+          <h3 id="rank-left-title">🏆 Por Agendas</h3>
           <div id="rank-agendas-body">
             <div class="rank-row gold-row"><div class="rank-pos gold">1°</div><div class="rank-dot" style="background:var(--c-flor)"></div><div class="rank-name">Flor</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--c-flor)"></div></div><div class="rank-val">732</div></div>
             <div class="rank-row"><div class="rank-pos">2°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:20%;background:var(--c-valeria)"></div></div><div class="rank-val">150</div></div>
@@ -1553,10 +1555,12 @@
           <div class="rt-btn">Seguimientos</div>
           <div class="rt-btn">Cash</div>
           <div class="rt-btn">Horas</div>
+          <div class="rt-btn">Leads</div>
         </div>
         <div class="chart-wrap">
           <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
+          <div id="leadsHoyPanel" style="display:none;"></div>
         </div>
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
@@ -1881,6 +1885,7 @@
             <input type="date" class="date-input" id="metricasFecha" value="2026-07-02">
             <span class="date-picker-icon" id="abrirCalendarioBtn" title="Elegir fecha desde el calendario">📅</span>
           </div>
+          <button class="save-btn" id="hyrosSyncBtn" style="background:linear-gradient(135deg,#3aa5ff,#2465f7);">🔄 Traer de Hyros</button>
           <button class="save-btn" id="guardarBtn">💾 Guardar</button>
           <span id="guardarStatus" style="font-size:12.5px;color:var(--text-dim);font-weight:600;"></span>
         </div>
@@ -2299,6 +2304,51 @@
     rt.classList.add('show');
     setTimeout(() => rt.classList.remove('show'), 3800);
   }
+
+  // Trae facturación (Cash) y cantidad de leads del día desde Hyros y
+  // completa los campos de Cash de cada setter — no guarda solo, sigue
+  // habiendo que revisar y apretar "Guardar" como siempre, esto solo
+  // evita tener que tipear la facturación a mano.
+  document.getElementById('hyrosSyncBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('hyrosSyncBtn');
+    const statusEl = document.getElementById('guardarStatus');
+    const fechaISO = document.getElementById('metricasFecha').value;
+    if(!fechaISO){ showToast('Elegí una fecha primero'); return; }
+    const [yyyy, mm, dd] = fechaISO.split('-');
+    const fecha = `${dd}/${mm}/${yyyy}`;
+
+    btn.disabled = true;
+    statusEl.textContent = 'Consultando Hyros…';
+
+    try{
+      const res = await fetch(WRITE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'fetchhyros', fecha })
+      });
+      const data = await res.json().catch(() => null);
+      if(data && data.status === 'ok' && data.data){
+        SETTER_KEYS.forEach(k => {
+          const info = data.data[k];
+          if(!info) return;
+          const cashEl = document.getElementById(`m-${k}-cash`);
+          if(cashEl) cashEl.value = Math.round(info.cash * 100) / 100;
+        });
+        const resumen = SETTER_KEYS.map(k => `${getDisplayName(k)}: ${data.data[k] ? data.data[k].leads : 0} leads`).join(' · ');
+        statusEl.textContent = '✅ Traído de Hyros';
+        showToast(`Facturación de ${fecha} cargada en los campos de Cash. Leads del día — ${resumen}. Revisá y apretá Guardar.`);
+      } else {
+        statusEl.textContent = '⚠️ Error con Hyros';
+        showToast('No se pudo traer de Hyros: ' + (data && data.message ? data.message : 'respuesta inesperada'));
+      }
+    } catch(err){
+      statusEl.textContent = '⚠️ No se pudo conectar';
+      showToast('No se pudo conectar con el Sheet/Hyros.');
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { statusEl.textContent = ''; }, 5000);
+    }
+  });
 
   document.getElementById('guardarBtn').addEventListener('click', async () => {
     const btn = document.getElementById('guardarBtn');
@@ -4279,30 +4329,72 @@
     el.classList.add('fx-refade');
   }
 
+  function renderRanked(containerId, totals, metric, fmt){
+    const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
+    const max = totals[sorted[0]][metric] || 1;
+    const posLabels = ['1°','2°','3°','4°'];
+    const el = document.getElementById(containerId);
+    const html = sorted.map((k,i) => `
+      <div class="rank-row ${i===0?'gold-row':''}">
+        <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
+        <div class="rank-dot" style="background:var(--c-${k})"></div>
+        <div class="rank-name">${getDisplayName(k)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:var(--c-${k})"></div></div>
+        <div class="rank-val">${fmt(totals[k][metric])}</div>
+      </div>
+    `).join('');
+    replaceWithFade(el, html);
+  }
+
+  // "Hoy" es distinto de los otros 3 períodos: esos leen del Sheet (datos
+  // ya guardados), pero hoy todavía nadie cargó nada a mano ahí — se trae
+  // en vivo de Hyros (leads + facturación neta del día), sin pasar por el
+  // paso de "Guardar". Se guarda en caché durante 60s para no golpear la
+  // API de Hyros cada vez que alguien toca el toggle Mensual/Semanal/Ayer
+  // y vuelve a "Hoy".
+  let hoyCache = null; // { ts, data }
+  async function fetchHoyLive(){
+    if(hoyCache && (Date.now() - hoyCache.ts) < 60000) return hoyCache.data;
+    const now = new Date();
+    const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+    const res = await fetch(WRITE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'fetchhyros', fecha })
+    });
+    const json = await res.json().catch(() => null);
+    if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
+    hoyCache = { ts: Date.now(), data: json.data };
+    return json.data;
+  }
+
   function renderRankingPanels(period){
+    const titleEl = document.getElementById('rank-left-title');
+
+    if(period === 'hoy'){
+      titleEl.textContent = '🎯 Por Leads (hoy, en vivo)';
+      document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+      document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+      fetchHoyLive().then(data => {
+        const totals = {};
+        SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0 }; });
+        renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
+        renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
+      }).catch(err => {
+        document.getElementById('rank-agendas-body').innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
+        document.getElementById('rank-cash-body').innerHTML = '';
+      });
+      return;
+    }
+
+    titleEl.textContent = '🏆 Por Agendas';
     let totals;
     if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
     else totals = computeMonthTotals();
 
-    function renderOne(containerId, metric, fmt){
-      const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
-      const max = totals[sorted[0]][metric] || 1;
-      const posLabels = ['1°','2°','3°','4°'];
-      const el = document.getElementById(containerId);
-      const html = sorted.map((k,i) => `
-        <div class="rank-row ${i===0?'gold-row':''}">
-          <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
-          <div class="rank-dot" style="background:var(--c-${k})"></div>
-          <div class="rank-name">${getDisplayName(k)}</div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:var(--c-${k})"></div></div>
-          <div class="rank-val">${fmt(totals[k][metric])}</div>
-        </div>
-      `).join('');
-      replaceWithFade(el, html);
-    }
-    renderOne('rank-agendas-body', 'agendas', fmtInt);
-    renderOne('rank-cash-body', 'cash', fmtMoney);
+    renderRanked('rank-agendas-body', totals, 'agendas', fmtInt);
+    renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
   }
 
 
@@ -4351,8 +4443,46 @@
     });
   });
 
+  // "Leads" no tiene serie histórica guardada (no se carga a mano día a
+  // día como Agendas/Cash) — en vez de un gráfico de tendencia, muestra el
+  // valor de HOY en vivo desde Hyros, igual que el botón "Hoy" del
+  // Ranking. Usa el mismo fetchHoyLive()/caché de 60s, así no duplica
+  // pedidos si el usuario ya miró "Hoy" en el Ranking hace poco.
+  function drawLeadsHoyPanel(){
+    document.getElementById('trendChart').style.display = 'none';
+    const panel = document.getElementById('leadsHoyPanel');
+    panel.style.display = 'block';
+    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+    fetchHoyLive().then(data => {
+      const totals = {};
+      SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0 }; });
+      const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b].leads-totals[a].leads);
+      const max = totals[sorted[0]].leads || 1;
+      const posLabels = ['1°','2°','3°','4°'];
+      panel.innerHTML = `<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">🎯 Leads de hoy, en vivo (Hyros) — no es un histórico, solo el total de hoy hasta este momento.</div>` +
+        sorted.map((k,i) => `
+          <div class="rank-row ${i===0?'gold-row':''}">
+            <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
+            <div class="rank-dot" style="background:var(--c-${k})"></div>
+            <div class="rank-name">${getDisplayName(k)}</div>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k].leads/max*100)}%;background:var(--c-${k})"></div></div>
+            <div class="rank-val">${fmtInt(totals[k].leads)}</div>
+          </div>
+        `).join('');
+    }).catch(err => {
+      panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
+    });
+  }
+
   function drawChart(){
     const svg = document.getElementById('trendChart');
+    const leadsPanel = document.getElementById('leadsHoyPanel');
+    if(currentMetric === 'leads'){
+      drawLeadsHoyPanel();
+      return;
+    }
+    svg.style.display = '';
+    leadsPanel.style.display = 'none';
     svg.innerHTML = '';
     svg.classList.remove('fx-refade');
     void svg.offsetWidth;
