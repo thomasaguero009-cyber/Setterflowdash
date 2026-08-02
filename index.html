@@ -1551,7 +1551,7 @@
         </div>
       </div>
 
-      <div class="section-label">📈 Métricas — Tendencia diaria</div>
+      <div class="section-label">📈 Métricas - Setters</div>
       <div class="chart-panel">
         <div class="chip-row">
           <div class="setter-chip" style="border-color:var(--c-thomi);color:var(--c-thomi)" data-setter="thomi"><span class="cdot" style="background:var(--c-thomi)"></span>THOMI</div>
@@ -1574,12 +1574,20 @@
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
-      <div class="section-label">📡 Por Fuente (hoy, en vivo)</div>
+      <div class="section-label">📡 Fuentes</div>
       <div class="chart-panel">
-        <div class="rank-toggle" id="fuenteToggle">
-          <div class="rt-btn active" data-fuente-metric="leads">Leads</div>
-          <div class="rt-btn" data-fuente-metric="agendas">Agendas</div>
-          <div class="rt-btn" data-fuente-metric="cash">Ventas</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+          <div class="rank-toggle" id="fuenteToggle" style="margin-bottom:0;">
+            <div class="rt-btn active" data-fuente-metric="leads">Leads</div>
+            <div class="rt-btn" data-fuente-metric="agendas">Agendas</div>
+            <div class="rt-btn" data-fuente-metric="cash">Ventas</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);">
+            <span>Desde</span>
+            <input type="date" class="date-input" id="fuenteDesde">
+            <span>hasta</span>
+            <input type="date" class="date-input" id="fuenteHasta">
+          </div>
         </div>
         <div id="fuentePanel"></div>
       </div>
@@ -4465,19 +4473,60 @@
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
   }
 
-  // ===== "Por Fuente" — qué cuenta/canal (no qué setter) trae más leads/
-  // agendas/ventas hoy. Reutiliza el mismo fetchHoyLive()/caché de 60s que
-  // ya usa el Ranking "Hoy", así no duplica pedidos a Hyros.
+  // ===== "Fuentes" — qué cuenta/canal (no qué setter) trae más leads/
+  // agendas/ventas, en el rango de fechas elegido. Por default arranca en
+  // "lo que va del mes" (día 1 hasta hoy) — se puede achicar/agrandar con
+  // los selectores de fecha de al lado del título.
   let fuenteMetricActual = 'leads';
+  let fuenteCache = null; // { key: "dd/mm/aaaa-dd/mm/aaaa", ts, fuentes }
+
+  function fuenteDDMMYYYY(d){
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+
+  function inicializarFechasFuente(){
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const isoHoy = hoy.toISOString().slice(0,10);
+    const isoPrimerDia = primerDiaMes.toISOString().slice(0,10);
+    document.getElementById('fuenteDesde').value = isoPrimerDia;
+    document.getElementById('fuenteHasta').value = isoHoy;
+  }
+
+  async function fetchFuenteRange(){
+    const desdeISO = document.getElementById('fuenteDesde').value;
+    const hastaISO = document.getElementById('fuenteHasta').value;
+    if(!desdeISO || !hastaISO) return { fuentes: {} };
+
+    const [ay,am,ad] = desdeISO.split('-');
+    const [by,bm,bd] = hastaISO.split('-');
+    const fecha = `${ad}/${am}/${ay}`;
+    const fechaHasta = `${bd}/${bm}/${by}`;
+    const cacheKey = fecha + '-' + fechaHasta;
+
+    if(fuenteCache && fuenteCache.key === cacheKey && (Date.now() - fuenteCache.ts) < 60000){
+      return fuenteCache;
+    }
+
+    const res = await fetch(WRITE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'fetchhyros', fecha, fechaHasta })
+    });
+    const json = await res.json().catch(() => null);
+    if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
+    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes: json.fuentes || {} };
+    return fuenteCache;
+  }
 
   function drawFuentePanel(){
     const panel = document.getElementById('fuentePanel');
     panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-    fetchHoyLive().then(resp => {
+    fetchFuenteRange().then(resp => {
       const fuentes = resp.fuentes || {};
       const keys = Object.keys(fuentes);
       if(!keys.length){
-        panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para hoy.</div>';
+        panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para ese rango.</div>';
         return;
       }
       const fmt = fuenteMetricActual === 'cash' ? fmtMoney : fmtInt;
@@ -4497,12 +4546,17 @@
     });
   }
 
+  inicializarFechasFuente();
+
   document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', function(){
       fuenteMetricActual = this.dataset.fuenteMetric;
       drawFuentePanel();
     });
   });
+
+  document.getElementById('fuenteDesde').addEventListener('change', drawFuentePanel);
+  document.getElementById('fuenteHasta').addEventListener('change', drawFuentePanel);
 
 
   function updatePerformanceCards(){
