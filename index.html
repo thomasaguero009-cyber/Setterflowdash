@@ -1574,6 +1574,16 @@
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
+      <div class="section-label">📡 Por Fuente (hoy, en vivo)</div>
+      <div class="chart-panel">
+        <div class="rank-toggle" id="fuenteToggle">
+          <div class="rt-btn active" data-fuente-metric="leads">Leads</div>
+          <div class="rt-btn" data-fuente-metric="agendas">Agendas</div>
+          <div class="rt-btn" data-fuente-metric="cash">Ventas</div>
+        </div>
+        <div id="fuentePanel"></div>
+      </div>
+
       <div class="section-label">⚡ Performance individual (Ayer)</div>
       <div class="perf-grid">
         <div class="perf-card" data-setter="thomi" style="border-color:var(--c-thomi);--glow-color:var(--c-thomi);">
@@ -4083,6 +4093,7 @@
     renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'mensual');
     if(recuentoOk) updatePerformanceCards();
     drawChart();
+    drawFuentePanel();
     showPositiveInsight();
   }
 
@@ -4404,7 +4415,7 @@
   // y vuelve a "Hoy".
   let hoyCache = null; // { ts, data }
   async function fetchHoyLive(){
-    if(hoyCache && (Date.now() - hoyCache.ts) < 60000) return hoyCache.data;
+    if(hoyCache && (Date.now() - hoyCache.ts) < 60000) return hoyCache;
     const now = new Date();
     const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
     const res = await fetch(WRITE_URL, {
@@ -4414,8 +4425,8 @@
     });
     const json = await res.json().catch(() => null);
     if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
-    hoyCache = { ts: Date.now(), data: json.data };
-    return json.data;
+    hoyCache = { ts: Date.now(), data: json.data, fuentes: json.fuentes || {} };
+    return hoyCache;
   }
 
   function renderRankingPanels(period){
@@ -4428,7 +4439,8 @@
       document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-agendas-hoy-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-      fetchHoyLive().then(data => {
+      fetchHoyLive().then(resp => {
+        const data = resp.data;
         const totals = {};
         SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0, agendas: (data[k]&&data[k].agendas)||0 }; });
         renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
@@ -4452,6 +4464,45 @@
     renderRanked('rank-agendas-body', totals, 'agendas', fmtInt);
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
   }
+
+  // ===== "Por Fuente" — qué cuenta/canal (no qué setter) trae más leads/
+  // agendas/ventas hoy. Reutiliza el mismo fetchHoyLive()/caché de 60s que
+  // ya usa el Ranking "Hoy", así no duplica pedidos a Hyros.
+  let fuenteMetricActual = 'leads';
+
+  function drawFuentePanel(){
+    const panel = document.getElementById('fuentePanel');
+    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+    fetchHoyLive().then(resp => {
+      const fuentes = resp.fuentes || {};
+      const keys = Object.keys(fuentes);
+      if(!keys.length){
+        panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para hoy.</div>';
+        return;
+      }
+      const fmt = fuenteMetricActual === 'cash' ? fmtMoney : fmtInt;
+      const sorted = keys.sort((a,b) => fuentes[b][fuenteMetricActual] - fuentes[a][fuenteMetricActual]);
+      const max = fuentes[sorted[0]][fuenteMetricActual] || 1;
+      const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
+      panel.innerHTML = sorted.map((key, i) => `
+        <div class="rank-row ${i===0?'gold-row':''}">
+          <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
+          <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][fuenteMetricActual]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-val">${fmt(fuentes[key][fuenteMetricActual])}</div>
+        </div>
+      `).join('');
+    }).catch(err => {
+      panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
+    });
+  }
+
+  document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      fuenteMetricActual = this.dataset.fuenteMetric;
+      drawFuentePanel();
+    });
+  });
 
 
   function updatePerformanceCards(){
