@@ -1587,7 +1587,7 @@
       </div>
       <div class="rank-grid">
         <div class="rank-panel">
-          <h3 id="rank-left-title">🏆 Agendas</h3>
+          <h3 id="rank-left-title">🎯 Leads</h3>
           <div id="rank-agendas-body">
             <div class="rank-row gold-row"><div class="rank-pos gold">1°</div><div class="rank-dot" style="background:var(--c-flor)"></div><div class="rank-name">Flor</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--c-flor)"></div></div><div class="rank-val">732</div></div>
             <div class="rank-row"><div class="rank-pos">2°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:20%;background:var(--c-valeria)"></div></div><div class="rank-val">150</div></div>
@@ -1604,8 +1604,8 @@
             <div class="rank-row"><div class="rank-pos">4°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--c-valeria)"></div></div><div class="rank-val">$0</div></div>
           </div>
         </div>
-        <div class="rank-panel" id="rank-agendas-hoy-panel" style="display:none;">
-          <h3>📅 Agendas</h3>
+        <div class="rank-panel" id="rank-agendas-hoy-panel">
+          <h3>🏆 Agendas</h3>
           <div id="rank-agendas-hoy-body"></div>
         </div>
       </div>
@@ -4203,7 +4203,8 @@
       totals[k] = {
         agendas: (s.agendas||[]).reduce((a,b)=>a+b,0),
         cash: (s.cash||[]).reduce((a,b)=>a+b,0),
-        seguimientos: (s.seguimientos||[]).reduce((a,b)=>a+b,0)
+        seguimientos: (s.seguimientos||[]).reduce((a,b)=>a+b,0),
+        leads: (s.leads||[]).reduce((a,b)=>a+b,0)
       };
     });
     return totals;
@@ -4244,7 +4245,7 @@
     const totals = {};
     SETTER_KEYS.forEach(k => {
       const s = setterSeries[k];
-      let agendas=0, cash=0, seguimientos=0, horas=0;
+      let agendas=0, cash=0, seguimientos=0, horas=0, leads=0;
       (s.dates||[]).forEach((dStr,i) => {
         const d = parseDDMMYYYY(dStr);
         if(d >= monday && d <= sunday){
@@ -4252,9 +4253,10 @@
           cash += s.cash[i]||0;
           seguimientos += s.seguimientos[i]||0;
           horas += (s.horas && s.horas[i]) || 0;
+          leads += (s.leads && s.leads[i]) || 0;
         }
       });
-      totals[k] = { agendas, cash, seguimientos, horas };
+      totals[k] = { agendas, cash, seguimientos, horas, leads };
     });
     return totals;
   }
@@ -4436,11 +4438,22 @@
     startInsightRotation('insightBanner', picked, 6000);
   }
 
+  // "Leads" no viene en la hoja de "recuento de ayer" (esa hoja es previa a
+  // que existiera esa columna) — se busca directo en setterSeries, la
+  // misma fecha, que sí la tiene.
+  function leadsParaFecha(setterKey, fechaStr){
+    const s = setterSeries[setterKey];
+    if(!s || !fechaStr) return 0;
+    const i = (s.dates||[]).indexOf(fechaStr);
+    return i === -1 ? 0 : ((s.leads && s.leads[i]) || 0);
+  }
+
   function computeYesterdayTotals(){
     const totals = {};
     SETTER_KEYS.forEach(k => {
       const d = recuentoAyer[k];
-      totals[k] = d ? { agendas:d.agendas, cash:d.cash, seguimientos:d.seguimientos } : { agendas:0, cash:0, seguimientos:0 };
+      const leads = leadsParaFecha(k, recuentoAyer.fecha);
+      totals[k] = d ? { agendas:d.agendas, cash:d.cash, seguimientos:d.seguimientos, leads } : { agendas:0, cash:0, seguimientos:0, leads };
     });
     return totals;
   }
@@ -4540,11 +4553,9 @@
 
   function renderRankingPanels(period){
     const titleEl = document.getElementById('rank-left-title');
-    const hoyPanel = document.getElementById('rank-agendas-hoy-panel');
+    titleEl.textContent = '🎯 Leads';
 
     if(period === 'hoy'){
-      titleEl.textContent = '🎯 Leads';
-      hoyPanel.style.display = 'block';
       document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-agendas-hoy-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
@@ -4563,15 +4574,14 @@
       return;
     }
 
-    hoyPanel.style.display = 'none';
-    titleEl.textContent = '🏆 Agendas';
     let totals;
     if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
     else totals = computeMonthTotals();
 
-    renderRanked('rank-agendas-body', totals, 'agendas', fmtInt);
+    renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
+    renderRanked('rank-agendas-hoy-body', totals, 'agendas', fmtInt);
   }
 
   // ===== "Fuentes" — qué cuenta/canal (no qué setter) trae más leads/
