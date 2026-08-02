@@ -1662,7 +1662,7 @@
 
       <div class="section-label" id="vpInlineLabel" style="display:none;">👤 Perfil</div>
       <div class="chart-panel" id="vpInlineWrap" style="display:none;padding:0;overflow:hidden;">
-        <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;max-height:220px;"></div>
+        <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;"></div>
         <div style="padding:0 26px 26px;position:relative;">
           <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:-40px;">
             <div style="display:flex;align-items:flex-end;gap:16px;">
@@ -5025,24 +5025,24 @@
     }
 
     const getVal = (i) => (s[vpMetricActual] && s[vpMetricActual][i]) || 0;
-    const W = 400, H = 160, padL = 34, padB = 20, padT = 10;
+    const W = 1000, H = 220, padL = 40, padB = 24, padT = 10;
     const maxVal = Math.max(1, ...dates.map((_,i) => getVal(i)));
 
     for(let g=0; g<=4; g++){
       const y = padT + (H-padT-padB) * (1 - g/4);
       const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1', padL); line.setAttribute('x2', W-8);
+      line.setAttribute('x1', padL); line.setAttribute('x2', W-10);
       line.setAttribute('y1', y); line.setAttribute('y2', y);
       line.setAttribute('stroke', '#1e1e2a'); line.setAttribute('stroke-width', '1');
       svg.appendChild(line);
       const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-      label.setAttribute('x', 2); label.setAttribute('y', y+3);
-      label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '9');
+      label.setAttribute('x', 4); label.setAttribute('y', y+4);
+      label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '11');
       label.textContent = Math.round(maxVal * g/4);
       svg.appendChild(label);
     }
 
-    function xAt(i){ return padL + (W-padL-8) * (n<=1 ? 0 : i/(n-1)); }
+    function xAt(i){ return padL + (W-padL-10) * (n<=1 ? 0 : i/(n-1)); }
     function yAt(v){ return padT + (H-padT-padB) * (1 - v/maxVal); }
 
     const color = colors[setterKey] || 'var(--purple)';
@@ -5065,7 +5065,7 @@
     for(let i=0;i<n;i++){
       const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
       const x = xAt(i);
-      const colW = n>1 ? (W-padL-8)/(n-1) : W;
+      const colW = n>1 ? (W-padL-10)/(n-1) : W;
       hit.setAttribute('x', x - colW/2);
       hit.setAttribute('y', 0);
       hit.setAttribute('width', colW);
