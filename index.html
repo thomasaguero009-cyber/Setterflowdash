@@ -499,6 +499,36 @@
 
   /* CHART */
   .chart-panel{ background: var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; }
+
+  /* Popup de calendario del panel "Fuentes" — elegir un día o un rango. */
+  .fuente-cal-popup{
+    position:absolute; right:0; top:calc(100% + 8px); z-index:60;
+    background: var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:14px; width:270px; box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  }
+  .fuente-cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; font-size:13px; font-weight:700; }
+  .fuente-cal-nav{ background:none; border:1px solid var(--border); border-radius:6px; color:var(--text); width:26px; height:26px; cursor:pointer; font-size:14px; }
+  .fuente-cal-nav:hover{ background: var(--card-hover); }
+  .fuente-cal-dow{ display:grid; grid-template-columns: repeat(7,1fr); text-align:center; font-size:10.5px; color:var(--text-dim); margin-bottom:4px; }
+  .fuente-cal-grid{ display:grid; grid-template-columns: repeat(7,1fr); gap:2px; }
+  .fuente-cal-day{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    font-size:12px; border-radius:8px; cursor:pointer; color:var(--text);
+    background:transparent; border:none;
+  }
+  .fuente-cal-day:hover{ background: var(--card-hover); }
+  .fuente-cal-day.outside{ color: var(--text-dim); opacity:0.4; }
+  .fuente-cal-day.today{ box-shadow: inset 0 0 0 1px var(--purple); }
+  .fuente-cal-day.in-range{ background: rgba(124,108,240,0.22); border-radius:0; }
+  .fuente-cal-day.range-start{ background: var(--purple); color:#fff; border-radius:8px 0 0 8px; }
+  .fuente-cal-day.range-end{ background: var(--purple); color:#fff; border-radius:0 8px 8px 0; }
+  .fuente-cal-day.range-start.range-end{ border-radius:8px; }
+  .fuente-cal-quick{ display:flex; gap:6px; margin-top:10px; }
+  .fuente-cal-quickbtn{
+    flex:1; background: var(--chip-bg, rgba(255,255,255,0.06)); border:1px solid var(--border);
+    color: var(--text-dim); border-radius:8px; padding:6px 0; font-size:11.5px; cursor:pointer;
+  }
+  .fuente-cal-quickbtn:hover{ color: var(--text); border-color: var(--purple); }
   .chip-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
   .setter-chip{
     display:flex; align-items:center; gap:7px;
@@ -1582,11 +1612,26 @@
             <div class="rt-btn" data-fuente-metric="agendas">Agendas</div>
             <div class="rt-btn" data-fuente-metric="cash">Ventas</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);">
-            <span>Desde</span>
-            <input type="date" class="date-input" id="fuenteDesde">
-            <span>hasta</span>
-            <input type="date" class="date-input" id="fuenteHasta">
+          <div style="position:relative;">
+            <button type="button" id="fuenteCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;">
+              📅 <span id="fuenteCalLabel">Este mes</span>
+            </button>
+            <div id="fuenteCalPopup" class="fuente-cal-popup" style="display:none;">
+              <div class="fuente-cal-header">
+                <button type="button" id="fuenteCalPrev" class="fuente-cal-nav">‹</button>
+                <span id="fuenteCalMesLabel"></span>
+                <button type="button" id="fuenteCalNext" class="fuente-cal-nav">›</button>
+              </div>
+              <div class="fuente-cal-dow">
+                <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
+              </div>
+              <div class="fuente-cal-grid" id="fuenteCalGrid"></div>
+              <div class="fuente-cal-quick">
+                <button type="button" class="fuente-cal-quickbtn" data-quick="hoy">Hoy</button>
+                <button type="button" class="fuente-cal-quickbtn" data-quick="mes">Este mes</button>
+              </div>
+              <button type="button" id="fuenteCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
+            </div>
           </div>
         </div>
         <div id="fuentePanel"></div>
@@ -4125,6 +4170,11 @@
     return new Date(y, m-1, d);
   }
 
+  const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  function nombreDiaSemana(fechaDDMMYYYY){
+    return DIAS_SEMANA[parseDDMMYYYY(fechaDDMMYYYY).getDay()];
+  }
+
   function getWeekRange(){
     // Referencia: la última fecha real con datos (no la fecha del dispositivo), más confiable
     let refDate = new Date();
@@ -4484,24 +4534,147 @@
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   }
 
+  function fuenteMismoDia(a, b){
+    return a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  }
+
+  // Rango ACTUALMENTE aplicado (lo que se usa para consultar Hyros).
+  let fuenteRango = { desde: null, hasta: null };
+  // Mes que se está mostrando en el popup, y selección EN CURSO ahí
+  // adentro (no se aplica hasta apretar "Aplicar").
+  let fuenteCalMes = new Date();
+  let fuenteCalTemp = { desde: null, hasta: null };
+
+  const MESES_FUENTE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  function actualizarLabelCalendario(){
+    const label = document.getElementById('fuenteCalLabel');
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    if(fuenteMismoDia(fuenteRango.desde, primerDiaMes) && fuenteMismoDia(fuenteRango.hasta, hoy)){
+      label.textContent = 'Este mes';
+    } else if(fuenteMismoDia(fuenteRango.desde, fuenteRango.hasta)){
+      label.textContent = fuenteDDMMYYYY(fuenteRango.desde);
+    } else {
+      label.textContent = fuenteDDMMYYYY(fuenteRango.desde) + ' → ' + fuenteDDMMYYYY(fuenteRango.hasta);
+    }
+  }
+
   function inicializarFechasFuente(){
     const hoy = new Date();
     const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const isoHoy = hoy.toISOString().slice(0,10);
-    const isoPrimerDia = primerDiaMes.toISOString().slice(0,10);
-    document.getElementById('fuenteDesde').value = isoPrimerDia;
-    document.getElementById('fuenteHasta').value = isoHoy;
+    fuenteRango = { desde: primerDiaMes, hasta: hoy };
+    fuenteCalMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    actualizarLabelCalendario();
   }
 
-  async function fetchFuenteRange(){
-    const desdeISO = document.getElementById('fuenteDesde').value;
-    const hastaISO = document.getElementById('fuenteHasta').value;
-    if(!desdeISO || !hastaISO) return { fuentes: {} };
+  function renderCalendarioPopup(){
+    document.getElementById('fuenteCalMesLabel').textContent = MESES_FUENTE[fuenteCalMes.getMonth()] + ' ' + fuenteCalMes.getFullYear();
+    const grid = document.getElementById('fuenteCalGrid');
+    const primerDia = new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth(), 1);
+    const startOffset = primerDia.getDay();
+    const diasEnMes = new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth()+1, 0).getDate();
+    const diasMesAnterior = new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth(), 0).getDate();
+    const hoy = new Date();
 
-    const [ay,am,ad] = desdeISO.split('-');
-    const [by,bm,bd] = hastaISO.split('-');
-    const fecha = `${ad}/${am}/${ay}`;
-    const fechaHasta = `${bd}/${bm}/${by}`;
+    const celdas = [];
+    for(let i=startOffset-1;i>=0;i--){
+      celdas.push({ dia: diasMesAnterior - i, fecha: new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth()-1, diasMesAnterior - i), outside: true });
+    }
+    for(let d=1; d<=diasEnMes; d++){
+      celdas.push({ dia: d, fecha: new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth(), d), outside: false });
+    }
+    let siguienteDia = 1;
+    while(celdas.length < 42){
+      celdas.push({ dia: siguienteDia, fecha: new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth()+1, siguienteDia), outside: true });
+      siguienteDia++;
+    }
+
+    const desde = fuenteCalTemp.desde, hasta = fuenteCalTemp.hasta;
+    grid.innerHTML = celdas.map(c => {
+      const classes = ['fuente-cal-day'];
+      if(c.outside) classes.push('outside');
+      if(fuenteMismoDia(c.fecha, hoy)) classes.push('today');
+      if(desde && hasta){
+        if(c.fecha >= desde && c.fecha <= hasta) classes.push('in-range');
+        if(fuenteMismoDia(c.fecha, desde)) classes.push('range-start');
+        if(fuenteMismoDia(c.fecha, hasta)) classes.push('range-end');
+      } else if(desde && fuenteMismoDia(c.fecha, desde)){
+        classes.push('range-start', 'range-end');
+      }
+      return `<button type="button" class="${classes.join(' ')}" data-time="${c.fecha.getTime()}">${c.dia}</button>`;
+    }).join('');
+  }
+
+  function abrirCalendarioPopup(){
+    fuenteCalMes = new Date(fuenteRango.desde.getFullYear(), fuenteRango.desde.getMonth(), 1);
+    fuenteCalTemp = { desde: fuenteRango.desde, hasta: fuenteRango.hasta };
+    renderCalendarioPopup();
+    document.getElementById('fuenteCalPopup').style.display = 'block';
+  }
+
+  function cerrarCalendarioPopup(){
+    document.getElementById('fuenteCalPopup').style.display = 'none';
+  }
+
+  document.getElementById('fuenteCalBtn').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const popup = document.getElementById('fuenteCalPopup');
+    if(popup.style.display === 'block') cerrarCalendarioPopup();
+    else abrirCalendarioPopup();
+  });
+  document.getElementById('fuenteCalPopup').addEventListener('click', (ev) => ev.stopPropagation());
+  document.addEventListener('click', cerrarCalendarioPopup);
+
+  document.getElementById('fuenteCalPrev').addEventListener('click', () => {
+    fuenteCalMes = new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth()-1, 1);
+    renderCalendarioPopup();
+  });
+  document.getElementById('fuenteCalNext').addEventListener('click', () => {
+    fuenteCalMes = new Date(fuenteCalMes.getFullYear(), fuenteCalMes.getMonth()+1, 1);
+    renderCalendarioPopup();
+  });
+
+  document.getElementById('fuenteCalGrid').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.fuente-cal-day');
+    if(!btn) return;
+    const fecha = new Date(Number(btn.dataset.time));
+    // Un solo click = elige ESE día. Un segundo click (en otro día) arma
+    // el rango entre el primero y el segundo, sin importar el orden en
+    // que se toquen.
+    if(!fuenteCalTemp.desde || (fuenteCalTemp.desde && fuenteCalTemp.hasta)){
+      fuenteCalTemp = { desde: fecha, hasta: null };
+    } else if(fecha < fuenteCalTemp.desde){
+      fuenteCalTemp = { desde: fecha, hasta: fuenteCalTemp.desde };
+    } else {
+      fuenteCalTemp = { desde: fuenteCalTemp.desde, hasta: fecha };
+    }
+    renderCalendarioPopup();
+  });
+
+  document.querySelectorAll('.fuente-cal-quickbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hoy = new Date();
+      fuenteCalTemp = btn.dataset.quick === 'hoy'
+        ? { desde: hoy, hasta: hoy }
+        : { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy };
+      fuenteCalMes = new Date(fuenteCalTemp.desde.getFullYear(), fuenteCalTemp.desde.getMonth(), 1);
+      renderCalendarioPopup();
+    });
+  });
+
+  document.getElementById('fuenteCalAplicar').addEventListener('click', () => {
+    if(!fuenteCalTemp.desde) return;
+    fuenteRango = { desde: fuenteCalTemp.desde, hasta: fuenteCalTemp.hasta || fuenteCalTemp.desde };
+    actualizarLabelCalendario();
+    cerrarCalendarioPopup();
+    drawFuentePanel();
+  });
+
+  async function fetchFuenteRange(){
+    if(!fuenteRango.desde || !fuenteRango.hasta) return { fuentes: {} };
+    const fecha = fuenteDDMMYYYY(fuenteRango.desde);
+    const fechaHasta = fuenteDDMMYYYY(fuenteRango.hasta);
     const cacheKey = fecha + '-' + fechaHasta;
 
     if(fuenteCache && fuenteCache.key === cacheKey && (Date.now() - fuenteCache.ts) < 60000){
@@ -4555,8 +4728,6 @@
     });
   });
 
-  document.getElementById('fuenteDesde').addEventListener('change', drawFuentePanel);
-  document.getElementById('fuenteHasta').addEventListener('change', drawFuentePanel);
 
 
   function updatePerformanceCards(){
@@ -4712,6 +4883,7 @@
       const visibleTotal = visibleKeys.reduce((s,k) => s + getVal(k,i), 0);
       tooltip.innerHTML = `
         <div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(dates[i])}</div>
         ${rows}
         <div class="tt-row total"><span class="tt-name">Total</span><span class="tt-val" style="color:var(--green)">${Math.round(visibleTotal)}</span></div>
       `;
