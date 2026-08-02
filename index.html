@@ -462,6 +462,8 @@
   }
   .rt-btn.active{ background: linear-gradient(135deg, var(--purple), #5a4bd6); color:#fff; border-color:transparent; box-shadow: 0 4px 16px var(--purple-glow); }
   .rt-btn:hover:not(.active){ background: var(--card-hover); }
+  .vp-toggle{ flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .vp-toggle .rt-btn{ padding:6px 12px; font-size:11.5px; }
 
   .rank-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
   .rank-panel{ background: var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
@@ -1368,19 +1370,46 @@
 <body>
 
   <div id="verPerfilModalOverlay" class="crop-overlay" style="display:none;">
-    <div class="crop-modal" style="max-width:380px;width:92vw;padding:0;overflow:hidden;">
-      <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;"></div>
-      <div style="text-align:center;margin:-32px 0 8px;padding:0 20px;position:relative;">
-        <div class="fb-avatar" id="vpAvatar" style="margin:0 auto 10px;width:68px;height:68px;font-size:26px;border-width:3px;">
-          <span id="vpAvatarInitial">?</span>
-          <img id="vpAvatarImg" style="display:none;">
+    <div class="crop-modal" style="max-width:380px;width:92vw;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
+      <div style="overflow-y:auto;">
+        <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;"></div>
+        <div style="text-align:center;margin:-32px 0 8px;padding:0 20px;position:relative;">
+          <div class="fb-avatar" id="vpAvatar" style="margin:0 auto 10px;width:68px;height:68px;font-size:26px;border-width:3px;">
+            <span id="vpAvatarInitial">?</span>
+            <img id="vpAvatarImg" style="display:none;">
+          </div>
+          <div style="font-size:17px;font-weight:800;" id="vpNombre"></div>
+          <div class="fb-apodo" id="vpApodo" style="display:none;margin-top:2px;"></div>
+          <div class="pensamiento-bubble" id="vpPensamiento" style="display:none;margin:8px auto 0;max-width:260px;"></div>
         </div>
-        <div style="font-size:17px;font-weight:800;" id="vpNombre"></div>
-        <div class="fb-apodo" id="vpApodo" style="display:none;margin-top:2px;"></div>
-        <div class="pensamiento-bubble" id="vpPensamiento" style="display:none;margin:8px auto 0;max-width:260px;"></div>
+        <div id="vpStatsWrap" style="margin:14px 20px 6px;"></div>
+
+        <div style="margin:18px 20px 6px;">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📈 Tendencia</div>
+          <div class="rank-toggle vp-toggle" id="vpMetricToggle">
+            <div class="rt-btn active" data-vp-metric="agendas">Agendas</div>
+            <div class="rt-btn" data-vp-metric="seguimientos">Seguimientos</div>
+            <div class="rt-btn" data-vp-metric="cash">Cash</div>
+            <div class="rt-btn" data-vp-metric="horas">Horas</div>
+            <div class="rt-btn" data-vp-metric="leads">Leads</div>
+          </div>
+          <div class="chart-wrap" style="margin-top:2px;">
+            <svg class="chart" viewBox="0 0 400 160" preserveAspectRatio="none" id="vpTrendChart" style="width:100%;height:150px;"></svg>
+            <div class="chart-tooltip" id="vpChartTooltip"></div>
+          </div>
+        </div>
+
+        <div style="margin:16px 20px 10px;">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📡 Fuentes <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
+          <div class="rank-toggle vp-toggle" id="vpFuenteToggle">
+            <div class="rt-btn active" data-vp-fuente-metric="leads">Leads</div>
+            <div class="rt-btn" data-vp-fuente-metric="agendas">Agendas</div>
+            <div class="rt-btn" data-vp-fuente-metric="cash">Ventas</div>
+          </div>
+          <div id="vpFuentesPanel"></div>
+        </div>
       </div>
-      <div id="vpStatsWrap" style="margin:14px 20px 6px;"></div>
-      <div class="crop-actions" style="padding:0 20px 20px;">
+      <div class="crop-actions" style="padding:14px 20px 20px;">
         <button class="save-btn" id="vpCloseBtn">Cerrar</button>
       </div>
     </div>
@@ -3108,6 +3137,21 @@
     document.getElementById('vpCover').style.background = 'linear-gradient(120deg, var(--purple), #5a4bd6 50%, var(--green))';
     modal.style.display = 'flex';
 
+    // Gráfico individual y fuentes de ESTE setter — se resetea a la métrica
+    // default cada vez que se abre el modal (de otra persona o el mismo).
+    vpCurrentSetter = setterKey;
+    vpMetricActual = 'agendas';
+    document.querySelectorAll('#vpMetricToggle .rt-btn').forEach(b => b.classList.remove('active'));
+    const vpMetricDefaultBtn = document.querySelector('#vpMetricToggle .rt-btn[data-vp-metric="agendas"]');
+    if(vpMetricDefaultBtn) vpMetricDefaultBtn.classList.add('active');
+    drawVpChart(setterKey);
+
+    vpFuenteMetricActual = 'leads';
+    document.querySelectorAll('#vpFuenteToggle .rt-btn').forEach(b => b.classList.remove('active'));
+    const vpFuenteDefaultBtn = document.querySelector('#vpFuenteToggle .rt-btn[data-vp-fuente-metric="leads"]');
+    if(vpFuenteDefaultBtn) vpFuenteDefaultBtn.classList.add('active');
+    drawVpFuentePanel(setterKey);
+
     // Las estadísticas ya están cargadas en memoria (no dependen de red), así que se
     // muestran de inmediato — la foto/portada de otra persona puede tardar un toque más.
     const stats = computeSetterMonthStats(setterKey);
@@ -4688,7 +4732,7 @@
     });
     const json = await res.json().catch(() => null);
     if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
-    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes: json.fuentes || {} };
+    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes: json.fuentes || {}, fuentesPorSetter: json.fuentesPorSetter || {} };
     return fuenteCache;
   }
 
@@ -4718,6 +4762,51 @@
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
     });
   }
+
+  // Mismo panel de "Fuentes" pero filtrado a UN solo setter (usado dentro
+  // de "Ver perfil"). Reutiliza fetchFuenteRange() — el rango de fechas ya
+  // viene de la sección "Fuentes" principal (por defecto, este mes) — así
+  // que no pega un pedido extra a Hyros, solo lee fuentesPorSetter[setterKey].
+  let vpCurrentSetter = null;
+  let vpMetricActual = 'agendas';
+  let vpFuenteMetricActual = 'leads';
+
+  function drawVpFuentePanel(setterKey){
+    const panel = document.getElementById('vpFuentesPanel');
+    if(!panel) return;
+    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+    fetchFuenteRange().then(resp => {
+      const fuentes = (resp.fuentesPorSetter && resp.fuentesPorSetter[setterKey]) || {};
+      const keys = Object.keys(fuentes);
+      if(!keys.length){
+        panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para este setter.</div>';
+        return;
+      }
+      const fmt = vpFuenteMetricActual === 'cash' ? fmtMoney : fmtInt;
+      const sorted = keys.sort((a,b) => fuentes[b][vpFuenteMetricActual] - fuentes[a][vpFuenteMetricActual]);
+      const max = fuentes[sorted[0]][vpFuenteMetricActual] || 1;
+      const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
+      panel.innerHTML = sorted.map((key, i) => `
+        <div class="rank-row ${i===0?'gold-row':''}">
+          <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
+          <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][vpFuenteMetricActual]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-val">${fmt(fuentes[key][vpFuenteMetricActual])}</div>
+        </div>
+      `).join('');
+    }).catch(err => {
+      panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
+    });
+  }
+
+  document.querySelectorAll('#vpFuenteToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      vpFuenteMetricActual = this.dataset.vpFuenteMetric;
+      if(vpCurrentSetter) drawVpFuentePanel(vpCurrentSetter);
+    });
+  });
 
   inicializarFechasFuente();
 
@@ -4896,6 +4985,103 @@
       tooltip.classList.add('show');
     }
   }
+
+  // Versión chiquita de drawChart() para el modal "Ver perfil": UNA sola
+  // línea (el color propio del setter), sin chips de selección — solo los
+  // botones de métrica. Se separa de drawChart() a propósito para no
+  // arriesgar el gráfico principal con este caso especial.
+  function drawVpChart(setterKey){
+    const svg = document.getElementById('vpTrendChart');
+    if(!svg) return;
+    svg.innerHTML = '';
+    const s = setterSeries && setterSeries[setterKey];
+    const dates = s ? s.dates : [];
+    const n = dates.length;
+    const tooltip = document.getElementById('vpChartTooltip');
+    if(!n){
+      if(tooltip) tooltip.classList.remove('show');
+      return;
+    }
+
+    const getVal = (i) => (s[vpMetricActual] && s[vpMetricActual][i]) || 0;
+    const W = 400, H = 160, padL = 34, padB = 20, padT = 10;
+    const maxVal = Math.max(1, ...dates.map((_,i) => getVal(i)));
+
+    for(let g=0; g<=4; g++){
+      const y = padT + (H-padT-padB) * (1 - g/4);
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1', padL); line.setAttribute('x2', W-8);
+      line.setAttribute('y1', y); line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1e1e2a'); line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x', 2); label.setAttribute('y', y+3);
+      label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '9');
+      label.textContent = Math.round(maxVal * g/4);
+      svg.appendChild(label);
+    }
+
+    function xAt(i){ return padL + (W-padL-8) * (n<=1 ? 0 : i/(n-1)); }
+    function yAt(v){ return padT + (H-padT-padB) * (1 - v/maxVal); }
+
+    const color = colors[setterKey] || 'var(--purple)';
+    const pts = dates.map((_,i) => [xAt(i), yAt(getVal(i))]);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', pts.map((p,i) => (i===0?'M':'L') + p[0] + ',' + p[1]).join(' '));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('stroke-linejoin','round');
+    svg.appendChild(path);
+    pts.forEach(([x,y]) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r','2.5');
+      c.setAttribute('fill', '#08080d'); c.setAttribute('stroke', color); c.setAttribute('stroke-width','1.5');
+      svg.appendChild(c);
+    });
+
+    for(let i=0;i<n;i++){
+      const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      const x = xAt(i);
+      const colW = n>1 ? (W-padL-8)/(n-1) : W;
+      hit.setAttribute('x', x - colW/2);
+      hit.setAttribute('y', 0);
+      hit.setAttribute('width', colW);
+      hit.setAttribute('height', H);
+      hit.setAttribute('fill', 'transparent');
+      hit.style.cursor = 'pointer';
+      const showTip = () => {
+        if(!tooltip) return;
+        const val = vpMetricActual === 'cash' ? fmtMoney(getVal(i)) : fmtInt(getVal(i));
+        tooltip.innerHTML = `
+          <div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>
+          <div class="tt-row"><span class="tt-name">${vpMetricActual.charAt(0).toUpperCase()+vpMetricActual.slice(1)}</span><span class="tt-val" style="color:${color}">${val}</span></div>
+        `;
+        const wrapWidth = svg.parentElement.clientWidth;
+        const pxRatio = wrapWidth / W;
+        let left = x * pxRatio + 10;
+        if(left + 180 > wrapWidth) left = x * pxRatio - 190;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = '10px';
+        tooltip.classList.add('show');
+      };
+      hit.addEventListener('mouseenter', showTip);
+      hit.addEventListener('mousemove', showTip);
+      hit.addEventListener('mouseleave', () => tooltip && tooltip.classList.remove('show'));
+      svg.appendChild(hit);
+    }
+  }
+
+  document.querySelectorAll('#vpMetricToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      vpMetricActual = this.dataset.vpMetric;
+      if(vpCurrentSetter) drawVpChart(vpCurrentSetter);
+    });
+  });
 
   document.querySelectorAll('.setter-chip').forEach(chip => {
     chip.addEventListener('click', function(){
