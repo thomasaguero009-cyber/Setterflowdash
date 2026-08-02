@@ -4526,60 +4526,37 @@
     replaceWithFade(el, html);
   }
 
-  // "Hoy" es distinto de los otros 3 períodos: esos leen del Sheet (datos
-  // ya guardados), pero hoy todavía nadie cargó nada a mano ahí — se trae
-  // en vivo de Hyros (leads + facturación neta del día), sin pasar por el
-  // paso de "Guardar". Se guarda en caché durante 3 minutos para no
-  // golpear la API de Hyros cada vez que alguien toca el toggle
-  // Mensual/Semanal/Ayer y vuelve a "Hoy" — y sobre todo para no chocar
-  // con la cuota diaria de UrlFetch de Google Apps Script si hay varias
-  // personas con el dashboard abierto al mismo tiempo (cada una
-  // auto-refresca cada 60s; con 3 min de caché no todas pegan a Hyros en
-  // cada ciclo). Los webhooks igual mantienen el Sheet al día al
-  // instante — esto es solo la vista "en vivo" del panel, no afecta esa
-  // parte.
-  const HYROS_CACHE_MS = 180000;
-  let hoyCache = null; // { ts, data }
-  async function fetchHoyLive(){
-    if(hoyCache && (Date.now() - hoyCache.ts) < HYROS_CACHE_MS) return hoyCache;
-    const now = new Date();
-    const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-    const res = await fetch(WRITE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'fetchhyros', fecha })
+  // "Hoy" ANTES se traía en vivo de Hyros (un pedido a la API cada vez que
+  // alguien tocaba el toggle), pero eso dependía de la cuota diaria de
+  // UrlFetch de Apps Script — si estaba agotada (por el motivo que sea),
+  // este panel quedaba roto aunque el resto del dashboard funcionara bien.
+  // Ya no hace falta: los webhooks + el sync automático de fondo escriben
+  // Leads/Cash/Agendas de HOY directo en el Sheet, en tiempo real — así
+  // que "Hoy" ahora lee esa misma fila de HOY del Sheet, igual que
+  // Mensual/Semanal/Ayer, sin pedirle nada a Hyros desde acá. Nunca más
+  // debería mostrar el error de cuota.
+  const HYROS_CACHE_MS = 180000; // sigue usándose para "Fuentes" (fetchFuenteRange), más abajo
+
+  function computeHoyTotals(){
+    const fechaHoy = fuenteDDMMYYYY(new Date());
+    const totals = {};
+    SETTER_KEYS.forEach(k => {
+      const s = setterSeries[k];
+      const i = s ? (s.dates || []).indexOf(fechaHoy) : -1;
+      totals[k] = i === -1
+        ? { leads: 0, cash: 0, agendas: 0 }
+        : { leads: (s.leads && s.leads[i]) || 0, cash: (s.cash && s.cash[i]) || 0, agendas: (s.agendas && s.agendas[i]) || 0 };
     });
-    const json = await res.json().catch(() => null);
-    if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
-    hoyCache = { ts: Date.now(), data: json.data, fuentes: json.fuentes || {} };
-    return hoyCache;
+    return totals;
   }
 
   function renderRankingPanels(period){
     const titleEl = document.getElementById('rank-left-title');
     titleEl.textContent = '🎯 Leads';
 
-    if(period === 'hoy'){
-      document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-      document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-      document.getElementById('rank-agendas-hoy-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
-      fetchHoyLive().then(resp => {
-        const data = resp.data;
-        const totals = {};
-        SETTER_KEYS.forEach(k => { totals[k] = { leads: (data[k]&&data[k].leads)||0, cash: (data[k]&&data[k].cash)||0, agendas: (data[k]&&data[k].agendas)||0 }; });
-        renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
-        renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
-        renderRanked('rank-agendas-hoy-body', totals, 'agendas', fmtInt);
-      }).catch(err => {
-        document.getElementById('rank-agendas-body').innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
-        document.getElementById('rank-cash-body').innerHTML = '';
-        document.getElementById('rank-agendas-hoy-body').innerHTML = '';
-      });
-      return;
-    }
-
     let totals;
-    if(period === 'semanal') totals = computeWeekTotals();
+    if(period === 'hoy') totals = computeHoyTotals();
+    else if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
     else totals = computeMonthTotals();
 
