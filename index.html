@@ -4512,12 +4512,19 @@
   // "Hoy" es distinto de los otros 3 períodos: esos leen del Sheet (datos
   // ya guardados), pero hoy todavía nadie cargó nada a mano ahí — se trae
   // en vivo de Hyros (leads + facturación neta del día), sin pasar por el
-  // paso de "Guardar". Se guarda en caché durante 60s para no golpear la
-  // API de Hyros cada vez que alguien toca el toggle Mensual/Semanal/Ayer
-  // y vuelve a "Hoy".
+  // paso de "Guardar". Se guarda en caché durante 3 minutos para no
+  // golpear la API de Hyros cada vez que alguien toca el toggle
+  // Mensual/Semanal/Ayer y vuelve a "Hoy" — y sobre todo para no chocar
+  // con la cuota diaria de UrlFetch de Google Apps Script si hay varias
+  // personas con el dashboard abierto al mismo tiempo (cada una
+  // auto-refresca cada 60s; con 3 min de caché no todas pegan a Hyros en
+  // cada ciclo). Los webhooks igual mantienen el Sheet al día al
+  // instante — esto es solo la vista "en vivo" del panel, no afecta esa
+  // parte.
+  const HYROS_CACHE_MS = 180000;
   let hoyCache = null; // { ts, data }
   async function fetchHoyLive(){
-    if(hoyCache && (Date.now() - hoyCache.ts) < 60000) return hoyCache;
+    if(hoyCache && (Date.now() - hoyCache.ts) < HYROS_CACHE_MS) return hoyCache;
     const now = new Date();
     const fecha = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
     const res = await fetch(WRITE_URL, {
@@ -4721,7 +4728,7 @@
     const fechaHasta = fuenteDDMMYYYY(fuenteRango.hasta);
     const cacheKey = fecha + '-' + fechaHasta;
 
-    if(fuenteCache && fuenteCache.key === cacheKey && (Date.now() - fuenteCache.ts) < 60000){
+    if(fuenteCache && fuenteCache.key === cacheKey && (Date.now() - fuenteCache.ts) < HYROS_CACHE_MS){
       return fuenteCache;
     }
 
