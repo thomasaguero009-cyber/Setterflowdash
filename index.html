@@ -1528,7 +1528,7 @@
       </div>
       <div class="rank-grid">
         <div class="rank-panel">
-          <h3 id="rank-left-title">🏆 Por Agendas</h3>
+          <h3 id="rank-left-title">🏆 Agendas</h3>
           <div id="rank-agendas-body">
             <div class="rank-row gold-row"><div class="rank-pos gold">1°</div><div class="rank-dot" style="background:var(--c-flor)"></div><div class="rank-name">Flor</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--c-flor)"></div></div><div class="rank-val">732</div></div>
             <div class="rank-row"><div class="rank-pos">2°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:20%;background:var(--c-valeria)"></div></div><div class="rank-val">150</div></div>
@@ -1537,7 +1537,7 @@
           </div>
         </div>
         <div class="rank-panel">
-          <h3>💰 Por Cash Collected</h3>
+          <h3>💰 Cash Collected</h3>
           <div id="rank-cash-body">
             <div class="rank-row gold-row"><div class="rank-pos gold">1°</div><div class="rank-dot" style="background:var(--c-flor)"></div><div class="rank-name">Flor</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--c-flor)"></div></div><div class="rank-val">$4.007,015</div></div>
             <div class="rank-row"><div class="rank-pos">2°</div><div class="rank-dot" style="background:var(--c-thomi)"></div><div class="rank-name">Thomi</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:1%;background:var(--c-thomi)"></div></div><div class="rank-val">$2.049</div></div>
@@ -1546,7 +1546,7 @@
           </div>
         </div>
         <div class="rank-panel" id="rank-agendas-hoy-panel" style="display:none;">
-          <h3>📅 Por Agendas (hoy, en vivo)</h3>
+          <h3>📅 Agendas</h3>
           <div id="rank-agendas-hoy-body"></div>
         </div>
       </div>
@@ -4423,7 +4423,7 @@
     const hoyPanel = document.getElementById('rank-agendas-hoy-panel');
 
     if(period === 'hoy'){
-      titleEl.textContent = '🎯 Por Leads (hoy, en vivo)';
+      titleEl.textContent = '🎯 Leads';
       hoyPanel.style.display = 'block';
       document.getElementById('rank-agendas-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
       document.getElementById('rank-cash-body').innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
@@ -4443,7 +4443,7 @@
     }
 
     hoyPanel.style.display = 'none';
-    titleEl.textContent = '🏆 Por Agendas';
+    titleEl.textContent = '🏆 Agendas';
     let totals;
     if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
