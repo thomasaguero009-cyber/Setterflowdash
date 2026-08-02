@@ -1011,7 +1011,6 @@
   .crop-controls{ display:flex; align-items:center; gap:12px; margin-bottom:20px; max-width:320px; }
   .crop-controls input[type=range]{ flex:1; accent-color: var(--purple); }
   .crop-actions{ display:flex; gap:10px; justify-content:center; }
-  #vpStatsWrap .tracker-grid{ grid-template-columns: 1fr; gap:10px; }
 
   /* ===== "En qué estás pensando" + selector de emojis ===== */
   .pensamiento-box{
@@ -1369,51 +1368,6 @@
 </head>
 <body>
 
-  <div id="verPerfilModalOverlay" class="crop-overlay" style="display:none;">
-    <div class="crop-modal" style="max-width:380px;width:92vw;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
-      <div style="overflow-y:auto;">
-        <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;"></div>
-        <div style="text-align:center;margin:-32px 0 8px;padding:0 20px;position:relative;">
-          <div class="fb-avatar" id="vpAvatar" style="margin:0 auto 10px;width:68px;height:68px;font-size:26px;border-width:3px;">
-            <span id="vpAvatarInitial">?</span>
-            <img id="vpAvatarImg" style="display:none;">
-          </div>
-          <div style="font-size:17px;font-weight:800;" id="vpNombre"></div>
-          <div class="fb-apodo" id="vpApodo" style="display:none;margin-top:2px;"></div>
-          <div class="pensamiento-bubble" id="vpPensamiento" style="display:none;margin:8px auto 0;max-width:260px;"></div>
-        </div>
-        <div id="vpStatsWrap" style="margin:14px 20px 6px;"></div>
-
-        <div style="margin:18px 20px 6px;">
-          <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📈 Tendencia</div>
-          <div class="rank-toggle vp-toggle" id="vpMetricToggle">
-            <div class="rt-btn active" data-vp-metric="agendas">Agendas</div>
-            <div class="rt-btn" data-vp-metric="seguimientos">Seguimientos</div>
-            <div class="rt-btn" data-vp-metric="cash">Cash</div>
-            <div class="rt-btn" data-vp-metric="horas">Horas</div>
-            <div class="rt-btn" data-vp-metric="leads">Leads</div>
-          </div>
-          <div class="chart-wrap" style="margin-top:2px;">
-            <svg class="chart" viewBox="0 0 400 160" preserveAspectRatio="none" id="vpTrendChart" style="width:100%;height:150px;"></svg>
-            <div class="chart-tooltip" id="vpChartTooltip"></div>
-          </div>
-        </div>
-
-        <div style="margin:16px 20px 10px;">
-          <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📡 Fuentes <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
-          <div class="rank-toggle vp-toggle" id="vpFuenteToggle">
-            <div class="rt-btn active" data-vp-fuente-metric="leads">Leads</div>
-            <div class="rt-btn" data-vp-fuente-metric="agendas">Agendas</div>
-            <div class="rt-btn" data-vp-fuente-metric="cash">Ventas</div>
-          </div>
-          <div id="vpFuentesPanel"></div>
-        </div>
-      </div>
-      <div class="crop-actions" style="padding:14px 20px 20px;">
-        <button class="save-btn" id="vpCloseBtn">Cerrar</button>
-      </div>
-    </div>
-  </div>
 
   <div id="cropModalOverlay" class="crop-overlay" style="display:none;">
     <div class="crop-modal">
@@ -1703,6 +1657,54 @@
           <div class="perf-row"><span>Agendas</span><span id="pf-franco-agendas">17</span></div>
           <div class="perf-row"><span>Conversión</span><span id="pf-franco-conv">27.4%</span></div>
           <button class="perf-view-btn" data-setter="franco">👤 Ver perfil</button>
+        </div>
+      </div>
+
+      <div class="section-label" id="vpInlineLabel" style="display:none;">👤 Perfil</div>
+      <div class="chart-panel" id="vpInlineWrap" style="display:none;padding:0;overflow:hidden;">
+        <div class="fb-cover" id="vpCover" style="height:auto;aspect-ratio:640/220;max-height:220px;"></div>
+        <div style="padding:0 26px 26px;position:relative;">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:-40px;">
+            <div style="display:flex;align-items:flex-end;gap:16px;">
+              <div class="fb-avatar" id="vpAvatar" style="width:84px;height:84px;font-size:30px;">
+                <span id="vpAvatarInitial">?</span>
+                <img id="vpAvatarImg" style="display:none;">
+              </div>
+              <div style="padding-bottom:6px;">
+                <div style="font-size:19px;font-weight:800;" id="vpNombre"></div>
+                <div class="fb-apodo" id="vpApodo" style="display:none;margin-top:2px;"></div>
+              </div>
+            </div>
+            <button class="save-btn" id="vpCloseBtn" style="background:var(--card);border:1px solid var(--border);color:var(--text-dim);font-weight:600;">✕ Ocultar perfil</button>
+          </div>
+          <div class="pensamiento-bubble" id="vpPensamiento" style="display:none;margin:14px 0 0;max-width:420px;"></div>
+
+          <div id="vpStatsWrap" style="margin:24px 0 6px;"></div>
+
+          <div style="margin-top:26px;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📈 Tendencia</div>
+            <div class="rank-toggle vp-toggle" id="vpMetricToggle">
+              <div class="rt-btn active" data-vp-metric="agendas">Agendas</div>
+              <div class="rt-btn" data-vp-metric="seguimientos">Seguimientos</div>
+              <div class="rt-btn" data-vp-metric="cash">Cash</div>
+              <div class="rt-btn" data-vp-metric="horas">Horas</div>
+              <div class="rt-btn" data-vp-metric="leads">Leads</div>
+            </div>
+            <div class="chart-wrap" style="margin-top:2px;">
+              <svg class="chart" viewBox="0 0 1000 220" preserveAspectRatio="none" id="vpTrendChart" style="width:100%;height:220px;"></svg>
+              <div class="chart-tooltip" id="vpChartTooltip"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:24px;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📡 Fuentes <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
+            <div class="rank-toggle vp-toggle" id="vpFuenteToggle">
+              <div class="rt-btn active" data-vp-fuente-metric="leads">Leads</div>
+              <div class="rt-btn" data-vp-fuente-metric="agendas">Agendas</div>
+              <div class="rt-btn" data-vp-fuente-metric="cash">Ventas</div>
+            </div>
+            <div id="vpFuentesPanel"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -3126,7 +3128,8 @@
 
   async function openPerfilModal(setterKey){
     const nombreLindo = getDisplayName(setterKey);
-    const modal = document.getElementById('verPerfilModalOverlay');
+    const wrap = document.getElementById('vpInlineWrap');
+    const label = document.getElementById('vpInlineLabel');
     document.getElementById('vpNombre').textContent = nombreLindo;
     document.getElementById('vpApodo').style.display = 'none';
     document.getElementById('vpPensamiento').style.display = 'none';
@@ -3135,7 +3138,9 @@
     document.getElementById('vpAvatarImg').style.display = 'none';
     document.getElementById('vpCover').style.backgroundImage = '';
     document.getElementById('vpCover').style.background = 'linear-gradient(120deg, var(--purple), #5a4bd6 50%, var(--green))';
-    modal.style.display = 'flex';
+    label.style.display = 'flex';
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     // Gráfico individual y fuentes de ESTE setter — se resetea a la métrica
     // default cada vez que se abre el modal (de otra persona o el mismo).
@@ -3237,10 +3242,9 @@
   }
 
   document.getElementById('vpCloseBtn').addEventListener('click', () => {
-    document.getElementById('verPerfilModalOverlay').style.display = 'none';
-  });
-  document.getElementById('verPerfilModalOverlay').addEventListener('click', (e) => {
-    if(e.target.id === 'verPerfilModalOverlay') e.currentTarget.style.display = 'none';
+    document.getElementById('vpInlineWrap').style.display = 'none';
+    document.getElementById('vpInlineLabel').style.display = 'none';
+    vpCurrentSetter = null;
   });
 
   document.querySelectorAll('.perf-view-btn').forEach(btn => {
