@@ -4914,16 +4914,19 @@
         panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para ese rango.</div>';
         return;
       }
-      const fmt = fuenteMetricActual === 'cash' ? fmtMoney : fmtInt;
-      const sorted = keys.sort((a,b) => fuentes[b][fuenteMetricActual] - fuentes[a][fuenteMetricActual]);
-      const max = fuentes[sorted[0]][fuenteMetricActual] || 1;
+      // OJO: el botón se sigue llamando "Agendas" pero, por pedido, muestra
+      // los números de Leads — igual que el panel de Ranking de arriba.
+      const campo = fuenteMetricActual === 'agendas' ? 'leads' : fuenteMetricActual;
+      const fmt = campo === 'cash' ? fmtMoney : fmtInt;
+      const sorted = keys.sort((a,b) => fuentes[b][campo] - fuentes[a][campo]);
+      const max = fuentes[sorted[0]][campo] || 1;
       const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
       panel.innerHTML = sorted.map((key, i) => `
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][fuenteMetricActual]/max*100)}%;background:var(--purple)"></div></div>
-          <div class="rank-val">${fmt(fuentes[key][fuenteMetricActual])}</div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][campo]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
       `).join('');
     }).catch(err => {
@@ -4950,16 +4953,17 @@
         panel.innerHTML = '<div class="rank-loading">Todavía no hay datos de fuente para este setter.</div>';
         return;
       }
-      const fmt = vpFuenteMetricActual === 'cash' ? fmtMoney : fmtInt;
-      const sorted = keys.sort((a,b) => fuentes[b][vpFuenteMetricActual] - fuentes[a][vpFuenteMetricActual]);
-      const max = fuentes[sorted[0]][vpFuenteMetricActual] || 1;
+      const campo = vpFuenteMetricActual === 'agendas' ? 'leads' : vpFuenteMetricActual;
+      const fmt = campo === 'cash' ? fmtMoney : fmtInt;
+      const sorted = keys.sort((a,b) => fuentes[b][campo] - fuentes[a][campo]);
+      const max = fuentes[sorted[0]][campo] || 1;
       const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
       panel.innerHTML = sorted.map((key, i) => `
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][vpFuenteMetricActual]/max*100)}%;background:var(--purple)"></div></div>
-          <div class="rank-val">${fmt(fuentes[key][vpFuenteMetricActual])}</div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][campo]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
       `).join('');
     }).catch(err => {
