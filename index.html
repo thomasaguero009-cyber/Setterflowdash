@@ -1553,6 +1553,7 @@
             </div>
             <div class="fuente-cal-dow"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>
             <div class="fuente-cal-grid" id="rankCalGrid"></div>
+            <button type="button" id="rankCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
           </div>
         </div>
       </div>
@@ -4484,14 +4485,26 @@
     return totals;
   }
 
-  function computeCustomDayTotals(fecha){
+  // Suma agendas/cash/leads de TODOS los días entre desde y hasta (ambos
+  // incluidos) — si es un solo día, desde === hasta y da lo mismo que
+  // antes. Mismo patrón que computeWeekTotals, pero con un rango elegido
+  // a mano en vez de la semana calendario.
+  function computeCustomRangeTotals(desde, hasta){
+    const desdeD = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate(), 0, 0, 0);
+    const hastaD = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate(), 23, 59, 59);
     const totals = {};
     SETTER_KEYS.forEach(k => {
-      totals[k] = {
-        agendas: valorParaFecha(k, 'agendas', fecha),
-        cash: valorParaFecha(k, 'cash', fecha),
-        leads: valorParaFecha(k, 'leads', fecha)
-      };
+      const s = setterSeries[k];
+      let agendas = 0, cash = 0, leads = 0;
+      (s && s.dates || []).forEach((dStr, i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(d >= desdeD && d <= hastaD){
+          agendas += s.agendas[i] || 0;
+          cash += s.cash[i] || 0;
+          leads += (s.leads && s.leads[i]) || 0;
+        }
+      });
+      totals[k] = { agendas, cash, leads };
     });
     return totals;
   }
@@ -4586,7 +4599,7 @@
 
   function renderRankingPanels(period){
     let totals;
-    if(period === 'custom' && rankCustomFecha) totals = computeCustomDayTotals(rankCustomFecha);
+    if(period === 'custom' && rankRango.desde) totals = computeCustomRangeTotals(rankRango.desde, rankRango.hasta);
     else if(period === 'hoy') totals = computeHoyTotals();
     else if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
@@ -4596,12 +4609,19 @@
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
   }
 
-  // ===== Selector de fecha puntual del Ranking (botón 📅 "Elegir fecha") =====
-  // Calendario de un solo día (no rango, a diferencia del de "Fuentes") —
-  // un clic en un día selecciona, aplica y cierra. Reutiliza las mismas
-  // clases CSS que el calendario de "Fuentes" (.fuente-cal-*).
-  let rankCustomFecha = null; // dd/mm/aaaa elegido, o null si está en Mensual/Semanal/Ayer/Hoy
+  // ===== Selector de fecha del Ranking (botón 📅 "Elegir fecha") =====
+  // Igual que el calendario de "Fuentes": un clic elige un solo día, un
+  // segundo clic (en otro día) arma un RANGO entre los dos (sin importar
+  // el orden en que se toquen) — útil para ver, por ejemplo, la semana 2
+  // o 3 del mes sueltas. No se aplica hasta apretar "Aplicar". Reutiliza
+  // las mismas clases CSS que "Fuentes" (.fuente-cal-*).
+  let rankRango = { desde: null, hasta: null }; // rango ACTUALMENTE aplicado, o null si está en Mensual/Semanal/Ayer/Hoy
   let rankCalMes = new Date(); rankCalMes.setDate(1);
+  let rankCalTemp = { desde: null, hasta: null }; // selección en curso dentro del popup, sin aplicar todavía
+
+  function rankMismoDia(a, b){
+    return a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  }
 
   function renderRankCalendarPopup(){
     const grid = document.getElementById('rankCalGrid');
@@ -4613,38 +4633,45 @@
     const startDate = new Date(primerDia);
     startDate.setDate(startDate.getDate() - primerDia.getDay());
     const hoy = new Date();
+    const desde = rankCalTemp.desde, hasta = rankCalTemp.hasta;
 
     let html = '';
     for(let i=0;i<42;i++){
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
-      const outside = d.getMonth() !== rankCalMes.getMonth();
-      const isToday = d.toDateString() === hoy.toDateString();
-      const isSelected = rankCustomFecha === fuenteDDMMYYYY(d);
-      html += `<div class="fuente-cal-day ${outside?'outside':''} ${isToday?'today':''} ${isSelected?'in-range range-start range-end':''}" data-date="${d.toISOString()}">${d.getDate()}</div>`;
+      const classes = ['fuente-cal-day'];
+      if(d.getMonth() !== rankCalMes.getMonth()) classes.push('outside');
+      if(d.toDateString() === hoy.toDateString()) classes.push('today');
+      if(desde && hasta){
+        if(d >= desde && d <= hasta) classes.push('in-range');
+        if(rankMismoDia(d, desde)) classes.push('range-start');
+        if(rankMismoDia(d, hasta)) classes.push('range-end');
+      } else if(desde && rankMismoDia(d, desde)){
+        classes.push('range-start', 'range-end');
+      }
+      html += `<button type="button" class="${classes.join(' ')}" data-time="${d.getTime()}">${d.getDate()}</button>`;
     }
     grid.innerHTML = html;
+  }
 
-    grid.querySelectorAll('.fuente-cal-day').forEach(el => {
-      el.addEventListener('click', () => {
-        const d = new Date(el.dataset.date);
-        rankCustomFecha = fuenteDDMMYYYY(d);
-        document.getElementById('rankCalLabel').textContent = rankCustomFecha;
-        document.getElementById('rankCalBtn').classList.add('active-cal');
-        document.querySelectorAll('#rankToggle .rt-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('rankCalPopup').style.display = 'none';
-        renderRankingPanels('custom');
-      });
-    });
+  function rankCalLabelTexto(){
+    if(!rankRango.desde) return 'Elegir fecha';
+    if(rankMismoDia(rankRango.desde, rankRango.hasta)) return fuenteDDMMYYYY(rankRango.desde);
+    return fuenteDDMMYYYY(rankRango.desde) + ' → ' + fuenteDDMMYYYY(rankRango.hasta);
   }
 
   const rankCalBtn = document.getElementById('rankCalBtn');
   const rankCalPopup = document.getElementById('rankCalPopup');
+
   rankCalBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const abrir = rankCalPopup.style.display === 'none';
     rankCalPopup.style.display = abrir ? 'block' : 'none';
-    if(abrir) renderRankCalendarPopup();
+    if(abrir){
+      rankCalTemp = { desde: rankRango.desde, hasta: rankRango.hasta };
+      rankCalMes = rankRango.desde ? new Date(rankRango.desde.getFullYear(), rankRango.desde.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      renderRankCalendarPopup();
+    }
   });
   rankCalPopup.addEventListener('click', (e) => e.stopPropagation());
   document.addEventListener('click', () => { rankCalPopup.style.display = 'none'; });
@@ -4659,10 +4686,34 @@
     renderRankCalendarPopup();
   });
 
-  // Elegir Mensual/Semanal/Ayer/Hoy cancela la fecha puntual del calendario
+  document.getElementById('rankCalGrid').addEventListener('click', (e) => {
+    const btn = e.target.closest('.fuente-cal-day');
+    if(!btn) return;
+    const fecha = new Date(Number(btn.dataset.time));
+    if(!rankCalTemp.desde || (rankCalTemp.desde && rankCalTemp.hasta)){
+      rankCalTemp = { desde: fecha, hasta: null };
+    } else if(fecha < rankCalTemp.desde){
+      rankCalTemp = { desde: fecha, hasta: rankCalTemp.desde };
+    } else {
+      rankCalTemp = { desde: rankCalTemp.desde, hasta: fecha };
+    }
+    renderRankCalendarPopup();
+  });
+
+  document.getElementById('rankCalAplicar').addEventListener('click', () => {
+    if(!rankCalTemp.desde) return;
+    rankRango = { desde: rankCalTemp.desde, hasta: rankCalTemp.hasta || rankCalTemp.desde };
+    document.getElementById('rankCalLabel').textContent = rankCalLabelTexto();
+    rankCalBtn.classList.add('active-cal');
+    document.querySelectorAll('#rankToggle .rt-btn').forEach(b => b.classList.remove('active'));
+    rankCalPopup.style.display = 'none';
+    renderRankingPanels('custom');
+  });
+
+  // Elegir Mensual/Semanal/Ayer/Hoy cancela el rango elegido con el calendario
   document.querySelectorAll('#rankToggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      rankCustomFecha = null;
+      rankRango = { desde: null, hasta: null };
       rankCalBtn.classList.remove('active-cal');
       document.getElementById('rankCalLabel').textContent = 'Elegir fecha';
     });
