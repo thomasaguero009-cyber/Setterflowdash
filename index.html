@@ -4619,7 +4619,9 @@
     else if(period === 'ayer') totals = computeYesterdayTotals();
     else totals = computeMonthTotals();
 
-    renderRanked('rank-agendas-body', totals, 'agendas', fmtInt);
+    // OJO: el panel se sigue llamando "🏆 Agendas" (título fijo en el HTML),
+    // pero por pedido muestra los números de Leads, no de Agendas.
+    renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
   }
 
