@@ -5047,7 +5047,10 @@
     const n = dates.length;
     if(!n) return;
 
-    const getVal = (k,i) => (setterSeries && setterSeries[k] && setterSeries[k][currentMetric] && setterSeries[k][currentMetric][i]) || 0;
+    // OJO: el botón se sigue llamando "Agendas" pero, por pedido, muestra
+    // los números de Leads — mismo criterio que Ranking y Fuentes.
+    const campoActual = currentMetric === 'agendas' ? 'leads' : currentMetric;
+    const getVal = (k,i) => (setterSeries && setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0;
     const totals = dates.map((_,i) => SETTER_KEYS.reduce((s,k) => s + getVal(k,i), 0));
     const visibleKeys = SETTER_KEYS.filter(k => activeSeries.has(k));
 
