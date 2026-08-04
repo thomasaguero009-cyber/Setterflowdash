@@ -4238,6 +4238,21 @@
     return DIAS_SEMANA[parseDDMMYYYY(fechaDDMMYYYY).getDay()];
   }
 
+  // "Semana" acá NO es la semana calendario (lunes a domingo) — son
+  // bloques fijos de 7 días DEL MES: 1-7, 8-14, 15-21, 22-fin de mes (el
+  // último bloque puede quedar más corto, de 7 a 10 días según el mes).
+  // Así, por ejemplo, el 3 de agosto siempre cae en el bloque "1-7 de
+  // agosto", sin importar qué día de la semana calendario sea.
+  function bucketRangeForDate(refDate){
+    const dayOfMonth = refDate.getDate();
+    const bucketStartDay = Math.floor((dayOfMonth - 1) / 7) * 7 + 1;
+    const inicio = new Date(refDate.getFullYear(), refDate.getMonth(), bucketStartDay, 0, 0, 0);
+    const lastDayOfMonth = new Date(refDate.getFullYear(), refDate.getMonth()+1, 0).getDate();
+    const bucketEndDay = Math.min(bucketStartDay + 6, lastDayOfMonth);
+    const fin = new Date(refDate.getFullYear(), refDate.getMonth(), bucketEndDay, 23, 59, 59);
+    return { inicio, fin };
+  }
+
   function getWeekRange(){
     // Referencia: la última fecha real con datos (no la fecha del dispositivo), más confiable
     let refDate = new Date();
@@ -4250,23 +4265,18 @@
       }
     });
     if(latest) refDate = latest;
-
-    const day = refDate.getDay(); // 0=Dom
-    const diffToMonday = (day === 0 ? -6 : 1 - day);
-    const monday = new Date(refDate); monday.setDate(refDate.getDate()+diffToMonday); monday.setHours(0,0,0,0);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
-    return { monday, sunday };
+    return bucketRangeForDate(refDate);
   }
 
   function computeWeekTotals(){
-    const { monday, sunday } = getWeekRange();
+    const { inicio, fin } = getWeekRange();
     const totals = {};
     SETTER_KEYS.forEach(k => {
       const s = setterSeries[k];
       let agendas=0, cash=0, seguimientos=0, horas=0, leads=0;
       (s.dates||[]).forEach((dStr,i) => {
         const d = parseDDMMYYYY(dStr);
-        if(d >= monday && d <= sunday){
+        if(d >= inicio && d <= fin){
           agendas += s.agendas[i]||0;
           cash += s.cash[i]||0;
           seguimientos += s.seguimientos[i]||0;
@@ -4280,16 +4290,20 @@
   }
 
   function computePrevWeekTotals(){
-    const { monday } = getWeekRange();
-    const prevSunday = new Date(monday); prevSunday.setDate(monday.getDate()-1); prevSunday.setHours(23,59,59,999);
-    const prevMonday = new Date(monday); prevMonday.setDate(monday.getDate()-7); prevMonday.setHours(0,0,0,0);
+    const { inicio } = getWeekRange();
+    // Último día del bloque anterior (puede caer en el mes previo, ej. si
+    // el bloque actual es "1-7", el anterior termina el último día del
+    // mes de antes) — de ahí se recalcula el bloque completo anterior.
+    const diaAnterior = new Date(inicio);
+    diaAnterior.setDate(inicio.getDate() - 1);
+    const { inicio: prevInicio, fin: prevFin } = bucketRangeForDate(diaAnterior);
     const totals = {};
     SETTER_KEYS.forEach(k => {
       const s = setterSeries[k];
       let agendas=0, cash=0, seguimientos=0, horas=0;
       (s.dates||[]).forEach((dStr,i) => {
         const d = parseDDMMYYYY(dStr);
-        if(d >= prevMonday && d <= prevSunday){
+        if(d >= prevInicio && d <= prevFin){
           agendas += s.agendas[i]||0;
           cash += s.cash[i]||0;
           seguimientos += s.seguimientos[i]||0;
