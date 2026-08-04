@@ -461,6 +461,7 @@
     transition: all .15s ease;
   }
   .rt-btn.active{ background: linear-gradient(135deg, var(--purple), #5a4bd6); color:#fff; border-color:transparent; box-shadow: 0 4px 16px var(--purple-glow); }
+  #rankCalBtn.active-cal{ background: linear-gradient(135deg, var(--purple), #5a4bd6); color:#fff; border-color:transparent; }
   .rt-btn:hover:not(.active){ background: var(--card-hover); }
   .vp-toggle{ flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   .vp-toggle .rt-btn{ padding:6px 12px; font-size:11.5px; }
@@ -1533,15 +1534,31 @@
       </div>
 
       <div class="section-label">🏆 Ranking</div>
-      <div class="rank-toggle">
-        <div class="rt-btn active" data-rank="mensual">Mensual</div>
-        <div class="rt-btn" data-rank="semanal">Semanal</div>
-        <div class="rt-btn" data-rank="ayer">Ayer</div>
-        <div class="rt-btn" data-rank="hoy">Hoy</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div class="rank-toggle" id="rankToggle" style="margin-bottom:18px;">
+          <div class="rt-btn active" data-rank="mensual">Mensual</div>
+          <div class="rt-btn" data-rank="semanal">Semanal</div>
+          <div class="rt-btn" data-rank="ayer">Ayer</div>
+          <div class="rt-btn" data-rank="hoy">Hoy</div>
+        </div>
+        <div style="position:relative;margin-bottom:18px;">
+          <button type="button" id="rankCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;">
+            📅 <span id="rankCalLabel">Elegir fecha</span>
+          </button>
+          <div id="rankCalPopup" class="fuente-cal-popup" style="display:none;">
+            <div class="fuente-cal-header">
+              <button type="button" id="rankCalPrev" class="fuente-cal-nav">‹</button>
+              <span id="rankCalMesLabel"></span>
+              <button type="button" id="rankCalNext" class="fuente-cal-nav">›</button>
+            </div>
+            <div class="fuente-cal-dow"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>
+            <div class="fuente-cal-grid" id="rankCalGrid"></div>
+          </div>
+        </div>
       </div>
       <div class="rank-grid">
         <div class="rank-panel">
-          <h3 id="rank-left-title">🎯 Leads</h3>
+          <h3>🏆 Agendas</h3>
           <div id="rank-agendas-body">
             <div class="rank-row gold-row"><div class="rank-pos gold">1°</div><div class="rank-dot" style="background:var(--c-flor)"></div><div class="rank-name">Flor</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:100%;background:var(--c-flor)"></div></div><div class="rank-val">732</div></div>
             <div class="rank-row"><div class="rank-pos">2°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:20%;background:var(--c-valeria)"></div></div><div class="rank-val">150</div></div>
@@ -1557,10 +1574,6 @@
             <div class="rank-row"><div class="rank-pos">3°</div><div class="rank-dot" style="background:var(--c-franco)"></div><div class="rank-name">Franco</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:0.5%;background:var(--c-franco)"></div></div><div class="rank-val">$70</div></div>
             <div class="rank-row"><div class="rank-pos">4°</div><div class="rank-dot" style="background:var(--c-valeria)"></div><div class="rank-name">Valeria</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--c-valeria)"></div></div><div class="rank-val">$0</div></div>
           </div>
-        </div>
-        <div class="rank-panel" id="rank-agendas-hoy-panel">
-          <h3>🏆 Agendas</h3>
-          <div id="rank-agendas-hoy-body"></div>
         </div>
       </div>
 
@@ -4442,22 +4455,43 @@
     startInsightRotation('insightBanner', picked, 6000);
   }
 
-  // "Leads" no viene en la hoja de "recuento de ayer" (esa hoja es previa a
-  // que existiera esa columna) — se busca directo en setterSeries, la
-  // misma fecha, que sí la tiene.
-  function leadsParaFecha(setterKey, fechaStr){
+  // Trae un valor puntual (agendas/cash/leads/seguimientos) de la pestaña
+  // de ESE setter para una fecha exacta. Se usa para "Ayer" y para el
+  // selector de fecha puntual del Ranking — antes "Ayer" leía de una hoja
+  // de "recuento" aparte, publicada por separado, que se podía desincronizar
+  // de las pestañas reales de cada setter (ej. mostraba $0 para alguien que
+  // en su propia pestaña sí tenía facturación cargada). Leyendo directo de
+  // setterSeries (la misma fuente que ya usan Mensual/Semanal) no puede
+  // quedar desincronizado con la pestaña real de nadie.
+  function valorParaFecha(setterKey, campo, fechaStr){
     const s = setterSeries[setterKey];
     if(!s || !fechaStr) return 0;
     const i = (s.dates||[]).indexOf(fechaStr);
-    return i === -1 ? 0 : ((s.leads && s.leads[i]) || 0);
+    return i === -1 ? 0 : ((s[campo] && s[campo][i]) || 0);
   }
 
   function computeYesterdayTotals(){
     const totals = {};
+    const fecha = recuentoAyer.fecha; // solo se usa para saber QUÉ fecha es "ayer" — los valores vienen de setterSeries
     SETTER_KEYS.forEach(k => {
-      const d = recuentoAyer[k];
-      const leads = leadsParaFecha(k, recuentoAyer.fecha);
-      totals[k] = d ? { agendas:d.agendas, cash:d.cash, seguimientos:d.seguimientos, leads } : { agendas:0, cash:0, seguimientos:0, leads };
+      totals[k] = {
+        agendas: valorParaFecha(k, 'agendas', fecha),
+        cash: valorParaFecha(k, 'cash', fecha),
+        seguimientos: valorParaFecha(k, 'seguimientos', fecha),
+        leads: valorParaFecha(k, 'leads', fecha)
+      };
+    });
+    return totals;
+  }
+
+  function computeCustomDayTotals(fecha){
+    const totals = {};
+    SETTER_KEYS.forEach(k => {
+      totals[k] = {
+        agendas: valorParaFecha(k, 'agendas', fecha),
+        cash: valorParaFecha(k, 'cash', fecha),
+        leads: valorParaFecha(k, 'leads', fecha)
+      };
     });
     return totals;
   }
@@ -4551,19 +4585,88 @@
   }
 
   function renderRankingPanels(period){
-    const titleEl = document.getElementById('rank-left-title');
-    titleEl.textContent = '🎯 Leads';
-
     let totals;
-    if(period === 'hoy') totals = computeHoyTotals();
+    if(period === 'custom' && rankCustomFecha) totals = computeCustomDayTotals(rankCustomFecha);
+    else if(period === 'hoy') totals = computeHoyTotals();
     else if(period === 'semanal') totals = computeWeekTotals();
     else if(period === 'ayer') totals = computeYesterdayTotals();
     else totals = computeMonthTotals();
 
-    renderRanked('rank-agendas-body', totals, 'leads', fmtInt);
+    renderRanked('rank-agendas-body', totals, 'agendas', fmtInt);
     renderRanked('rank-cash-body', totals, 'cash', fmtMoney);
-    renderRanked('rank-agendas-hoy-body', totals, 'agendas', fmtInt);
   }
+
+  // ===== Selector de fecha puntual del Ranking (botón 📅 "Elegir fecha") =====
+  // Calendario de un solo día (no rango, a diferencia del de "Fuentes") —
+  // un clic en un día selecciona, aplica y cierra. Reutiliza las mismas
+  // clases CSS que el calendario de "Fuentes" (.fuente-cal-*).
+  let rankCustomFecha = null; // dd/mm/aaaa elegido, o null si está en Mensual/Semanal/Ayer/Hoy
+  let rankCalMes = new Date(); rankCalMes.setDate(1);
+
+  function renderRankCalendarPopup(){
+    const grid = document.getElementById('rankCalGrid');
+    const mesLabel = document.getElementById('rankCalMesLabel');
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    mesLabel.textContent = `${meses[rankCalMes.getMonth()]} ${rankCalMes.getFullYear()}`;
+
+    const primerDia = new Date(rankCalMes.getFullYear(), rankCalMes.getMonth(), 1);
+    const startDate = new Date(primerDia);
+    startDate.setDate(startDate.getDate() - primerDia.getDay());
+    const hoy = new Date();
+
+    let html = '';
+    for(let i=0;i<42;i++){
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const outside = d.getMonth() !== rankCalMes.getMonth();
+      const isToday = d.toDateString() === hoy.toDateString();
+      const isSelected = rankCustomFecha === fuenteDDMMYYYY(d);
+      html += `<div class="fuente-cal-day ${outside?'outside':''} ${isToday?'today':''} ${isSelected?'in-range range-start range-end':''}" data-date="${d.toISOString()}">${d.getDate()}</div>`;
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.fuente-cal-day').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = new Date(el.dataset.date);
+        rankCustomFecha = fuenteDDMMYYYY(d);
+        document.getElementById('rankCalLabel').textContent = rankCustomFecha;
+        document.getElementById('rankCalBtn').classList.add('active-cal');
+        document.querySelectorAll('#rankToggle .rt-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('rankCalPopup').style.display = 'none';
+        renderRankingPanels('custom');
+      });
+    });
+  }
+
+  const rankCalBtn = document.getElementById('rankCalBtn');
+  const rankCalPopup = document.getElementById('rankCalPopup');
+  rankCalBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const abrir = rankCalPopup.style.display === 'none';
+    rankCalPopup.style.display = abrir ? 'block' : 'none';
+    if(abrir) renderRankCalendarPopup();
+  });
+  rankCalPopup.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => { rankCalPopup.style.display = 'none'; });
+  document.getElementById('rankCalPrev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    rankCalMes.setMonth(rankCalMes.getMonth() - 1);
+    renderRankCalendarPopup();
+  });
+  document.getElementById('rankCalNext').addEventListener('click', (e) => {
+    e.stopPropagation();
+    rankCalMes.setMonth(rankCalMes.getMonth() + 1);
+    renderRankCalendarPopup();
+  });
+
+  // Elegir Mensual/Semanal/Ayer/Hoy cancela la fecha puntual del calendario
+  document.querySelectorAll('#rankToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rankCustomFecha = null;
+      rankCalBtn.classList.remove('active-cal');
+      document.getElementById('rankCalLabel').textContent = 'Elegir fecha';
+    });
+  });
 
   // ===== "Fuentes" — qué cuenta/canal (no qué setter) trae más leads/
   // agendas/ventas, en el rango de fechas elegido. Por default arranca en
