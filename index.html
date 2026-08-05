@@ -1592,7 +1592,6 @@
           <div class="rt-btn">Seguimientos</div>
           <div class="rt-btn">Cash</div>
           <div class="rt-btn">Horas</div>
-          <div class="rt-btn">Leads</div>
         </div>
         <div class="chart-wrap">
           <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
@@ -1605,8 +1604,7 @@
       <div class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
           <div class="rank-toggle" id="fuenteToggle" style="margin-bottom:0;">
-            <div class="rt-btn active" data-fuente-metric="leads">Leads</div>
-            <div class="rt-btn" data-fuente-metric="agendas">Agendas</div>
+            <div class="rt-btn active" data-fuente-metric="agendas">Agendas</div>
             <div class="rt-btn" data-fuente-metric="cash">Ventas</div>
           </div>
           <div style="position:relative;">
@@ -1702,7 +1700,6 @@
               <div class="rt-btn" data-vp-metric="seguimientos">Seguimientos</div>
               <div class="rt-btn" data-vp-metric="cash">Cash</div>
               <div class="rt-btn" data-vp-metric="horas">Horas</div>
-              <div class="rt-btn" data-vp-metric="leads">Leads</div>
             </div>
             <div class="chart-wrap" style="margin-top:2px;">
               <svg class="chart" viewBox="0 0 1000 220" preserveAspectRatio="none" id="vpTrendChart" style="width:100%;height:220px;"></svg>
@@ -1713,8 +1710,7 @@
           <div style="margin-top:24px;">
             <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📡 Fuentes <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
             <div class="rank-toggle vp-toggle" id="vpFuenteToggle">
-              <div class="rt-btn active" data-vp-fuente-metric="leads">Leads</div>
-              <div class="rt-btn" data-vp-fuente-metric="agendas">Agendas</div>
+              <div class="rt-btn active" data-vp-fuente-metric="agendas">Agendas</div>
               <div class="rt-btn" data-vp-fuente-metric="cash">Ventas</div>
             </div>
             <div id="vpFuentesPanel"></div>
@@ -3165,9 +3161,9 @@
     if(vpMetricDefaultBtn) vpMetricDefaultBtn.classList.add('active');
     drawVpChart(setterKey);
 
-    vpFuenteMetricActual = 'leads';
+    vpFuenteMetricActual = 'agendas';
     document.querySelectorAll('#vpFuenteToggle .rt-btn').forEach(b => b.classList.remove('active'));
-    const vpFuenteDefaultBtn = document.querySelector('#vpFuenteToggle .rt-btn[data-vp-fuente-metric="leads"]');
+    const vpFuenteDefaultBtn = document.querySelector('#vpFuenteToggle .rt-btn[data-vp-fuente-metric="agendas"]');
     if(vpFuenteDefaultBtn) vpFuenteDefaultBtn.classList.add('active');
     drawVpFuentePanel(setterKey);
 
@@ -4739,7 +4735,7 @@
   // agendas/ventas, en el rango de fechas elegido. Por default arranca en
   // "lo que va del mes" (día 1 hasta hoy) — se puede achicar/agrandar con
   // los selectores de fecha de al lado del título.
-  let fuenteMetricActual = 'leads';
+  let fuenteMetricActual = 'agendas';
   let fuenteCache = null; // { key: "dd/mm/aaaa-dd/mm/aaaa", ts, fuentes }
 
   function fuenteDDMMYYYY(d){
@@ -4940,7 +4936,7 @@
   // que no pega un pedido extra a Hyros, solo lee fuentesPorSetter[setterKey].
   let vpCurrentSetter = null;
   let vpMetricActual = 'agendas';
-  let vpFuenteMetricActual = 'leads';
+  let vpFuenteMetricActual = 'agendas';
 
   function drawVpFuentePanel(setterKey){
     const panel = document.getElementById('vpFuentesPanel');
