@@ -1639,11 +1639,11 @@
         <div id="fuentePanel"></div>
       </div>
 
-      <div class="section-label">🎯 Matemática del éxito — Meta $50.000</div>
+      <div class="section-label">🎯 Matemática del éxito — Meta del mes: $50.000</div>
       <div class="chart-panel">
         <div class="tracker-grid">
           <div class="tracker-card agendas">
-            <div class="tl">Facturación histórica</div>
+            <div class="tl">Facturación de este mes</div>
             <div class="tv" id="me-total-historico">$0</div>
             <div class="tf" id="me-progreso-pct">0% de la meta</div>
           </div>
@@ -1654,16 +1654,16 @@
           <div class="tracker-card seg">
             <div class="tl">Meta diaria del equipo</div>
             <div class="tv" id="me-meta-diaria-equipo">$0</div>
-            <div class="tf" id="me-dias-fin-ano">para llegar antes de fin de año</div>
+            <div class="tf" id="me-dias-fin-ano">para lo que queda del mes</div>
           </div>
         </div>
 
         <div class="mate-exito-progress-bar"><div class="mate-exito-progress-fill" id="me-progress-fill"></div></div>
 
-        <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales)</div>
+        <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales, para lo que queda del mes)</div>
         <div class="perf-grid" id="me-setters-grid"></div>
 
-        <div class="section-label" style="margin-top:24px;">Proyección: ¿cuándo llegamos a $50.000?</div>
+        <div class="section-label" style="margin-top:24px;">Proyección: ¿cuánto vamos a facturar a fin de mes?</div>
         <div class="mate-exito-legend">
           <div><span class="cdot" style="background:#34d399"></span> Optimista (+15%): <b id="me-fecha-optimista">-</b></div>
           <div><span class="cdot" style="background:var(--purple)"></span> Ritmo actual: <b id="me-fecha-actual">-</b></div>
@@ -1673,7 +1673,7 @@
           <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
-        <div class="data-status">Ritmo actual = promedio de Cash por día del mes activo hasta hoy · Facturación histórica = suma de la fila "TOTALES/PROMEDIOS" de las 4 hojas</div>
+        <div class="data-status">Línea blanca = facturación real acumulada de este mes, día a día. Líneas punteadas = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -5089,84 +5089,78 @@
     });
   });
 
-  // ===== "Matemática del éxito" — meta de $50.000 de facturación =====
+  // ===== "Matemática del éxito" — meta del MES: $50.000 de facturación =====
   // OJO: la meta real del negocio es $500.000, pero todo lo que carga acá
   // (Cash de las 4 hojas) viene con un cero de menos respecto al valor real
   // — es la misma escala en la que ya se ve "Cash acumulado" en el resto
   // del dashboard, así que la meta se ajusta a $50.000 para comparar
   // manzanas con manzanas, sin tener que reescalar los datos del Sheet.
   //
-  // Facturación histórica = suma de la fila "TOTALES/PROMEDIOS" (todos los
-  // meses) de las 4 hojas de setter — no solo el mes activo. Ritmo actual =
-  // promedio de Cash por día del mes activo hasta hoy (o el mes completo si
-  // se está viendo un mes ya cerrado). No hay una fecha límite pactada para
-  // la meta, así que la "meta diaria por setter" asume llegar antes de fin
-  // de año (31/12) como horizonte razonable — se muestra explícito en el
-  // panel para que no quede ambiguo de dónde sale ese número.
+  // Es una meta MENSUAL (no acumulada de todos los meses): cuánto llevamos
+  // facturado en el mes activo, cuánto falta, y a qué ritmo diario hay que
+  // ir en lo que resta del mes para llegar. La proyección de fin de mes
+  // parte de la facturación REAL día a día de este mes (línea sólida) y
+  // continúa desde hoy hasta el último día del mes en 3 ritmos (línea
+  // punteada): el promedio diario real hasta ahora, +15% y -15%.
   const META_FACTURACION = 50000;
 
   function renderMatematicaDelExito(){
-    const totalHistorico = SETTER_KEYS.reduce((s,k) => s + (cashHistoricoPorSetter[k]||0), 0);
-    const restante = Math.max(0, META_FACTURACION - totalHistorico);
-    const pct = Math.min(100, (totalHistorico / META_FACTURACION) * 100);
+    const hoyReal = new Date();
+    const totalDiasMes = new Date(Number(ACTIVE_MONTH_YYYY), Number(ACTIVE_MONTH_MM), 0).getDate();
+    const esMesReal = (String(hoyReal.getMonth()+1).padStart(2,'0') === ACTIVE_MONTH_MM && String(hoyReal.getFullYear()) === ACTIVE_MONTH_YYYY);
+    const diasTranscurridos = esMesReal ? hoyReal.getDate() : totalDiasMes;
+    const diasRestantes = Math.max(0, totalDiasMes - diasTranscurridos);
 
-    document.getElementById('me-total-historico').textContent = fmtMoney(totalHistorico);
+    const totalesMes = computeMonthTotals();
+    const cashMesActivo = SETTER_KEYS.reduce((s,k)=>s+totalesMes[k].cash,0);
+    const restante = Math.max(0, META_FACTURACION - cashMesActivo);
+    const pct = Math.min(100, (cashMesActivo / META_FACTURACION) * 100);
+
+    document.getElementById('me-total-historico').textContent = fmtMoney(cashMesActivo);
     document.getElementById('me-progreso-pct').textContent = pct.toFixed(1) + '% de la meta';
     document.getElementById('me-restante').textContent = fmtMoney(restante);
     document.getElementById('me-progress-fill').style.width = pct + '%';
 
-    const hoyReal = new Date();
-    const finDeAno = new Date(hoyReal.getFullYear(), 11, 31);
-    const diasHastaFinDeAno = Math.max(1, Math.ceil((finDeAno - hoyReal) / 86400000));
-    const metaDiariaEquipo = restante / diasHastaFinDeAno;
+    // Si ya no quedan días en el mes pero falta plata, no hay forma de
+    // repartirlo "por día" — se muestra todo lo que falta de una, no se
+    // divide por cero.
+    const metaDiariaEquipo = diasRestantes > 0 ? restante / diasRestantes : restante;
     const metaDiariaPorSetter = metaDiariaEquipo / SETTER_KEYS.length;
 
     document.getElementById('me-meta-diaria-equipo').textContent = fmtMoney(metaDiariaEquipo);
-    document.getElementById('me-dias-fin-ano').textContent = `para llegar antes de fin de año (${diasHastaFinDeAno} días restantes)`;
+    document.getElementById('me-dias-fin-ano').textContent = diasRestantes > 0
+      ? `para lo que queda del mes (${diasRestantes} días restantes)`
+      : 'último día del mes';
 
     document.getElementById('me-setters-grid').innerHTML = SETTER_KEYS.map(k => `
       <div class="perf-card" data-setter="${k}" style="border-color:var(--c-${k});--glow-color:var(--c-${k});">
         <h4><span class="cdot" style="background:var(--c-${k})"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
-        <div class="perf-row"><span>Histórico</span><span>${fmtMoney(cashHistoricoPorSetter[k]||0)}</span></div>
+        <div class="perf-row"><span>Este mes</span><span>${fmtMoney(totalesMes[k].cash)}</span></div>
       </div>
     `).join('');
 
-    const totalesMes = computeMonthTotals();
-    const cashMesActivo = SETTER_KEYS.reduce((s,k)=>s+totalesMes[k].cash,0);
-    const esMesReal = (String(hoyReal.getMonth()+1).padStart(2,'0') === ACTIVE_MONTH_MM && String(hoyReal.getFullYear()) === ACTIVE_MONTH_YYYY);
-    const diasTranscurridos = esMesReal ? hoyReal.getDate() : new Date(Number(ACTIVE_MONTH_YYYY), Number(ACTIVE_MONTH_MM), 0).getDate();
     const ritmoActual = diasTranscurridos > 0 ? cashMesActivo / diasTranscurridos : 0;
     const ritmoOptimista = ritmoActual * 1.15;
     const ritmoPesimista = ritmoActual * 0.85;
 
-    function diasParaMeta(ritmo){
-      if(restante <= 0) return 0;
-      return ritmo > 0 ? Math.ceil(restante/ritmo) : Infinity;
-    }
-    function fechaEnDias(dias){
-      if(!isFinite(dias)) return 'nunca a este ritmo';
-      const d = new Date(hoyReal);
-      d.setDate(d.getDate() + dias);
-      return d.toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
-    }
-    function textoMeta(dias){
-      return restante <= 0 ? '¡Meta alcanzada! 🎉' : `${fechaEnDias(dias)} (${isFinite(dias)?dias+' días':'—'})`;
-    }
+    const proyActual = cashMesActivo + ritmoActual * diasRestantes;
+    const proyOptimista = cashMesActivo + ritmoOptimista * diasRestantes;
+    const proyPesimista = cashMesActivo + ritmoPesimista * diasRestantes;
 
-    const diasActual = diasParaMeta(ritmoActual);
-    const diasOptimista = diasParaMeta(ritmoOptimista);
-    const diasPesimista = diasParaMeta(ritmoPesimista);
-
-    document.getElementById('me-fecha-actual').textContent = textoMeta(diasActual);
-    document.getElementById('me-fecha-optimista').textContent = textoMeta(diasOptimista);
-    document.getElementById('me-fecha-pesimista').textContent = textoMeta(diasPesimista);
+    function textoProyeccion(v){
+      const cumple = v >= META_FACTURACION;
+      return `${fmtMoney(v)}${cumple ? ' ✅' : ''}`;
+    }
+    document.getElementById('me-fecha-actual').textContent = textoProyeccion(proyActual);
+    document.getElementById('me-fecha-optimista').textContent = textoProyeccion(proyOptimista);
+    document.getElementById('me-fecha-pesimista').textContent = textoProyeccion(proyPesimista);
 
     drawProyeccionChart({
-      totalHistorico,
-      meta: META_FACTURACION,
+      totalDiasMes, diasTranscurridos, diasRestantes,
       ritmoActual, ritmoOptimista, ritmoPesimista,
-      diasMax: Math.max(30, diasActual, isFinite(diasOptimista)?diasOptimista:0, isFinite(diasPesimista)?diasPesimista:0)
+      meta: META_FACTURACION,
+      maxProyeccion: Math.max(proyOptimista, proyActual, proyPesimista)
     });
   }
 
@@ -5176,10 +5170,10 @@
     svg.innerHTML = '';
 
     const W = 1000, H = 280, padL = 64, padR = 10, padT = 14, padB = 24;
-    const diasMax = Math.min(p.diasMax || 30, 730); // tope de 2 años para que no se vuelva un gráfico absurdo
-    const maxY = p.meta * 1.08;
+    const totalDias = Math.max(1, p.totalDiasMes);
+    const maxY = Math.max(p.meta, p.maxProyeccion) * 1.08;
 
-    function xAt(d){ return padL + (W-padL-padR) * (d/diasMax); }
+    function xAt(d){ return padL + (W-padL-padR) * (d/totalDias); }
     function yAt(v){ return padT + (H-padT-padB) * (1 - Math.min(v,maxY)/maxY); }
 
     for(let g=0; g<=5; g++){
@@ -5208,35 +5202,56 @@
     metaLabel.textContent = 'Meta: ' + fmtMoney(p.meta);
     svg.appendChild(metaLabel);
 
+    // Línea sólida blanca: facturación REAL acumulada de este mes, día a
+    // día, hasta hoy (usa setterSeries, que ya viene filtrado al mes activo).
+    const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
+    let acumulado = 0;
+    const realAcumulado = dates.map((_,i) => {
+      const delDia = SETTER_KEYS.reduce((s,k) => s + ((setterSeries[k] && setterSeries[k].cash && setterSeries[k].cash[i]) || 0), 0);
+      acumulado += delDia;
+      return acumulado;
+    });
+    const ultimoReal = realAcumulado.length ? realAcumulado[realAcumulado.length-1] : 0;
+
+    if(realAcumulado.length){
+      const pts = realAcumulado.map((v,i) => [xAt(i+1), yAt(v)]);
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' '));
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', '#ffffff');
+      path.setAttribute('stroke-width','2.5');
+      path.setAttribute('stroke-linecap','round');
+      svg.appendChild(path);
+    }
+
+    // Desde hoy (diasTranscurridos) hasta fin de mes, 3 líneas punteadas
+    // proyectando cada ritmo, arrancando desde el último punto real.
     const escenarios = [
       { ritmo: p.ritmoOptimista, color: '#34d399' },
       { ritmo: p.ritmoActual, color: '#7c6cf0' },
       { ritmo: p.ritmoPesimista, color: '#f0568f' }
     ];
     escenarios.forEach(esc => {
-      const pasos = 40;
-      const pts = [];
-      for(let i=0;i<=pasos;i++){
-        const d = diasMax * (i/pasos);
-        pts.push([xAt(d), yAt(p.totalHistorico + esc.ritmo * d)]);
-      }
+      const x1 = xAt(p.diasTranscurridos), y1 = yAt(ultimoReal);
+      const x2 = xAt(totalDias), y2 = yAt(ultimoReal + esc.ritmo * p.diasRestantes);
       const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      path.setAttribute('d', pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' '));
+      path.setAttribute('d', `M ${x1},${y1} L ${x2},${y2}`);
       path.setAttribute('fill','none');
       path.setAttribute('stroke', esc.color);
       path.setAttribute('stroke-width','2.5');
       path.setAttribute('stroke-linecap','round');
+      path.setAttribute('stroke-dasharray','6,4');
       svg.appendChild(path);
     });
 
     for(let i=0;i<=4;i++){
-      const d = Math.round(diasMax * i/4);
+      const d = Math.round(totalDias * i/4) || 1;
       const x = xAt(d);
       const label = document.createElementNS('http://www.w3.org/2000/svg','text');
       label.setAttribute('x', x); label.setAttribute('y', H-6);
       label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '11');
       label.setAttribute('text-anchor', i===0?'start':(i===4?'end':'middle'));
-      label.textContent = d + 'd';
+      label.textContent = 'Día ' + d;
       svg.appendChild(label);
     }
   }
