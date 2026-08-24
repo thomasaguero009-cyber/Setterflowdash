@@ -453,6 +453,13 @@
   .tracker-card .tf{ font-size:13px; color:var(--text-dim); margin-top:8px; }
   .tracker-card .tf b{ color:var(--text); }
 
+  /* MATEMÁTICA DEL ÉXITO */
+  .mate-exito-progress-bar{ margin-top:20px; height:14px; border-radius:999px; background: var(--border); overflow:hidden; }
+  .mate-exito-progress-fill{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, var(--purple), var(--green)); transition: width 0.6s ease; }
+  .mate-exito-legend{ display:flex; flex-wrap:wrap; gap:20px; margin-bottom:14px; font-size:13px; color:var(--text-dim); }
+  .mate-exito-legend .cdot{ width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .mate-exito-legend b{ color:var(--text); }
+
   /* RANKING */
   .rank-toggle{ display:flex; gap:8px; margin-bottom:18px; }
   .rt-btn{
@@ -1632,6 +1639,43 @@
         <div id="fuentePanel"></div>
       </div>
 
+      <div class="section-label">🎯 Matemática del éxito — Meta $50.000</div>
+      <div class="chart-panel">
+        <div class="tracker-grid">
+          <div class="tracker-card agendas">
+            <div class="tl">Facturación histórica</div>
+            <div class="tv" id="me-total-historico">$0</div>
+            <div class="tf" id="me-progreso-pct">0% de la meta</div>
+          </div>
+          <div class="tracker-card cash">
+            <div class="tl">Falta para $50.000</div>
+            <div class="tv" id="me-restante">$50.000</div>
+          </div>
+          <div class="tracker-card seg">
+            <div class="tl">Meta diaria del equipo</div>
+            <div class="tv" id="me-meta-diaria-equipo">$0</div>
+            <div class="tf" id="me-dias-fin-ano">para llegar antes de fin de año</div>
+          </div>
+        </div>
+
+        <div class="mate-exito-progress-bar"><div class="mate-exito-progress-fill" id="me-progress-fill"></div></div>
+
+        <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales)</div>
+        <div class="perf-grid" id="me-setters-grid"></div>
+
+        <div class="section-label" style="margin-top:24px;">Proyección: ¿cuándo llegamos a $50.000?</div>
+        <div class="mate-exito-legend">
+          <div><span class="cdot" style="background:#34d399"></span> Optimista (+15%): <b id="me-fecha-optimista">-</b></div>
+          <div><span class="cdot" style="background:var(--purple)"></span> Ritmo actual: <b id="me-fecha-actual">-</b></div>
+          <div><span class="cdot" style="background:#f0568f"></span> Pesimista (-15%): <b id="me-fecha-pesimista">-</b></div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
+          <div class="chart-tooltip" id="proyeccionTooltip"></div>
+        </div>
+        <div class="data-status">Ritmo actual = promedio de Cash por día del mes activo hasta hoy · Facturación histórica = suma de la fila "TOTALES/PROMEDIOS" de las 4 hojas</div>
+      </div>
+
       <div class="section-label">⚡ Performance individual (Ayer)</div>
       <div class="perf-grid">
         <div class="perf-card" data-setter="thomi" style="border-color:var(--c-thomi);--glow-color:var(--c-thomi);">
@@ -1981,7 +2025,7 @@
         <div class="lock-card">
           <div class="lock-icon" style="background:linear-gradient(135deg,#f87171,#dc2626);">🚫</div>
           <h2>Acceso restringido</h2>
-          <p>Tu cuenta es de tipo Invitado y no tiene permiso para ver esta sección. Hablá con tu líder si creés que es un error.</p>
+          <p>Esta sección es solo para administradores (rol Líder). Hablá con tu líder si creés que es un error.</p>
           <button class="save-btn" style="width:100%" id="metricasBlockedLogoutBtn">Cerrar sesión</button>
         </div>
       </div>
@@ -2223,6 +2267,7 @@
   let setterSeries = {};   // { thomi: {dates:[], seguimientos:[], cash:[], horas:[], agendas:[]}, ... }
   let dashboardTotals = {}; // { agendas: {thomi,flor,valeria,franco}, cash:{...}, seguimientos:{...} }
   let recuentoAyer = {};    // { thomi: {seguimientos,cash,horas,agendas,conversion}, ..., fecha: "01/07/2026" }
+  let cashHistoricoPorSetter = { thomi: 0, flor: 0, valeria: 0, franco: 0 }; // suma TOTAL de todos los meses (fila "TOTALES/PROMEDIOS"), para "Matemática del éxito"
 
   // ===== MODO CLARO / OSCURO =====
   const themeToggle = document.getElementById('themeToggle');
@@ -2350,11 +2395,13 @@
 
     // Borramos la caché de 3 minutos para forzar traer los datos posta del Sheet, no una copia guardada
     try{
-      [...SETTER_SHEET_URLS, RECUENTO_URL].forEach(url => localStorage.removeItem('sfcache:' + url));
+      [...SETTER_SHEET_URLS, RECUENTO_URL, FUENTES_SHEET_URL].forEach(url => localStorage.removeItem('sfcache:' + url));
     } catch(e){}
+    fuenteCache = null; // Fuentes tiene su propia caché en memoria aparte (misma duración) — sin esto, "Actualizar" no la tocaba
 
     try{
       await loadLiveData(); // ya redibuja Tracker, Ranking (incluye "Hoy" en vivo si esa es la pestaña activa) y el gráfico de Métricas
+      drawFuentePanel();
       perfilesPublicosCache = null; // también refrescamos fotos/apodos del equipo
       await getPerfilesPublicos();
       updatePerfilPage();
@@ -2944,6 +2991,8 @@
     applyMetricasAccess();
     if(getSessionRol() !== 'Invitado'){
       showToast(`¡Hola, ${nombre}!`);
+    }
+    if(getSessionRol() === 'Lider'){
       prefillMetricsForm();
     }
     updatePerfilPage();
@@ -2961,7 +3010,9 @@
     const content = document.getElementById('metricasContent');
     if(!nombre){
       lockScreen.style.display = 'flex'; blocked.style.display = 'none'; content.style.display = 'none';
-    } else if(rol === 'Invitado'){
+    } else if(rol !== 'Lider'){
+      // Antes cualquier cuenta Aprobada (Setter incluido) podía cargar
+      // métricas de los 4 — ahora es solo para administradores (Líder).
       lockScreen.style.display = 'none'; blocked.style.display = 'flex'; content.style.display = 'none';
     } else {
       lockScreen.style.display = 'none'; blocked.style.display = 'none'; content.style.display = 'block';
@@ -3932,6 +3983,11 @@
   ];
   const DASHBOARD_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=1057540442&single=true&output=csv";
   const RECUENTO_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=724788502&single=true&output=csv";
+  // "Fuentes (diario)" — la guarda el backend de Hyros (Netlify) cada vez
+  // que resincroniza un día. Antes este panel le pegaba en vivo a Hyros vía
+  // Apps Script, lo que dependía de su cuota diaria de UrlFetch — ahora lee
+  // directo de acá, igual que el resto de los paneles del dashboard.
+  const FUENTES_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=1377956766&single=true&output=csv";
 
   const colors = { thomi: '#5b9bf0', flor: '#f0568f', valeria: '#a978f0', franco: '#f0745b', todos: '#34d399' };
   // ACTIVE_MONTH_MM, ACTIVE_MONTH_YYYY y MONTH_NAME_TO_MM se movieron arriba de todo
@@ -4029,11 +4085,21 @@
       leads: header.findIndex(h => h.includes('lead'))
     };
 
+    // La fila "TOTALES / PROMEDIOS" (fila 5) ya trae la suma histórica de
+    // Cash de TODOS los meses registrados en esta hoja — se usa para
+    // "Matemática del éxito" (facturación acumulada hacia la meta de
+    // $50.000), sin tener que sumar mes por mes acá.
+    let cashHistorico = 0;
+
     const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [] };
     for(let i=headerRow+1;i<rows.length;i++){
       const r = rows[i];
       const fecha = r[idx.fecha];
-      if(!fecha || /total|promedio/i.test(fecha)) continue;
+      if(!fecha) continue;
+      if(/total|promedio/i.test(fecha)){
+        cashHistorico = parseNum(r[idx.cash]);
+        continue;
+      }
       if(!/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(fecha.trim())) continue;
       const parts = fecha.trim().split('/');
       const mm = parts[1].padStart(2,'0');
@@ -4046,7 +4112,7 @@
       out.agendas.push(parseNum(r[idx.agendas]));
       out.leads.push(idx.leads > -1 ? parseNum(r[idx.leads]) : 0);
     }
-    return out.dates.length ? { key: setterKey, series: out } : null;
+    return out.dates.length ? { key: setterKey, series: out, cashHistorico } : null;
   }
 
   // ---- Parse DASHBOARD sheet: RANKING GENERAL table ----
@@ -4151,6 +4217,7 @@
       valeria: { dates, seguimientos: demoSeries(1,5,2),  cash: demoSeries(0,0,0),    horas: demoSeries(3,1,1), agendas: demoSeries(3,10,3), leads: demoSeries(4,20,4) },
       franco:  { dates, seguimientos: demoSeries(2,7,2),  cash: demoSeries(0,10,3),   horas: demoSeries(2,1,1), agendas: demoSeries(4,15,4), leads: demoSeries(5,25,5) }
     };
+    cashHistoricoPorSetter = { thomi: 32620, flor: 30813, valeria: 1803, franco: 214 };
   }
 
   const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos
@@ -4178,7 +4245,7 @@
       const parsedList = texts.map(parseSetterSheet).filter(Boolean);
       if(parsedList.length === 4){
         const bySetter = {};
-        parsedList.forEach(p => { bySetter[p.key] = p.series; });
+        parsedList.forEach(p => { bySetter[p.key] = p.series; cashHistoricoPorSetter[p.key] = p.cashHistorico || 0; });
         if(SETTER_KEYS.every(k => bySetter[k])){
           setterSeries = trimTrailingEmptyDays(bySetter);
           setterOk = true;
@@ -4205,6 +4272,7 @@
     if(recuentoOk) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
+    renderMatematicaDelExito();
     showPositiveInsight();
   }
 
@@ -4481,9 +4549,17 @@
     return i === -1 ? 0 : ((s[campo] && s[campo][i]) || 0);
   }
 
+  // La fecha de "ayer" se calcula acá mismo (hoy - 1 día), en vez de leerla
+  // de la celda "fecha a consultar" de la hoja "RECUENTO DEL DIA" — esa
+  // celda depende de una integración externa (CRM → Google Sheets) que se
+  // puede cortar (token inválido, etc.) y quedarse mostrando un día viejo,
+  // lo que hacía que este panel mostrara los números de OTRO día distinto
+  // al que realmente muestra el gráfico de Métricas para "ayer".
   function computeYesterdayTotals(){
     const totals = {};
-    const fecha = recuentoAyer.fecha; // solo se usa para saber QUÉ fecha es "ayer" — los valores vienen de setterSeries
+    const ayerDate = new Date();
+    ayerDate.setDate(ayerDate.getDate() - 1);
+    const fecha = fuenteDDMMYYYY(ayerDate);
     SETTER_KEYS.forEach(k => {
       totals[k] = {
         agendas: valorParaFecha(k, 'agendas', fecha),
@@ -4543,10 +4619,14 @@
       SETTER_KEYS.forEach(k => { if(totals[k][metric] > totals[best][metric]) best = k; });
       return best;
     }
-    const lAgendas = leaderOf('agendas');
-    document.getElementById('tk-agendas-value').textContent = fmtInt(SETTER_KEYS.reduce((s,k)=>s+totals[k].agendas,0));
+    // OJO: la tarjeta se sigue llamando "Agendas acumuladas" (título fijo en
+    // el HTML), pero igual que el panel de Ranking de más abajo, muestra los
+    // Leads del Sheet, no la columna real de Agendas — mismo criterio en
+    // los dos lugares del dashboard.
+    const lAgendas = leaderOf('leads');
+    document.getElementById('tk-agendas-value').textContent = fmtInt(SETTER_KEYS.reduce((s,k)=>s+totals[k].leads,0));
     document.getElementById('tk-agendas-leader').textContent = nameCap(lAgendas);
-    document.getElementById('tk-agendas-leader-val').textContent = fmtInt(totals[lAgendas].agendas);
+    document.getElementById('tk-agendas-leader-val').textContent = fmtInt(totals[lAgendas].leads);
 
     const lCash = leaderOf('cash');
     document.getElementById('tk-cash-value').textContent = fmtMoney(SETTER_KEYS.reduce((s,k)=>s+totals[k].cash,0));
@@ -4879,8 +4959,33 @@
     drawFuentePanel();
   });
 
+  // Fila de "Fuentes (diario)": Fecha, Cuenta, Canal, Leads, Agendas, Cash
+  // (mismo orden de columnas que escribe el backend de Netlify).
+  function parseFuentesSheet(text){
+    const rows = parseCSV(text);
+    const out = [];
+    for(let i=1;i<rows.length;i++){ // fila 0 = encabezado
+      const r = rows[i];
+      if(!r[0] || !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(r[0].trim())) continue;
+      out.push({
+        fecha: parseDDMMYYYY(r[0].trim()),
+        cuenta: r[1] || 'Otra cuenta',
+        canal: r[2] || 'Otro canal',
+        leads: parseNum(r[3]),
+        agendas: parseNum(r[4]),
+        cash: parseNum(r[5])
+      });
+    }
+    return out;
+  }
+
+  // NOTA: "fuentesPorSetter" (usado en "Ver perfil") queda vacío a
+  // propósito — "Fuentes (diario)" solo guarda el desglose GLOBAL por
+  // cuenta/canal, no separado por setter (eso solo existía pidiéndoselo a
+  // Hyros en vivo). drawVpFuentePanel ya maneja el caso vacío mostrando
+  // "Todavía no hay datos de fuente para este setter." sin romper nada.
   async function fetchFuenteRange(){
-    if(!fuenteRango.desde || !fuenteRango.hasta) return { fuentes: {} };
+    if(!fuenteRango.desde || !fuenteRango.hasta) return { fuentes: {}, fuentesPorSetter: {} };
     const fecha = fuenteDDMMYYYY(fuenteRango.desde);
     const fechaHasta = fuenteDDMMYYYY(fuenteRango.hasta);
     const cacheKey = fecha + '-' + fechaHasta;
@@ -4889,20 +4994,28 @@
       return fuenteCache;
     }
 
-    const res = await fetch(WRITE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'fetchhyros', fecha, fechaHasta })
+    const text = await safeFetchText(FUENTES_SHEET_URL);
+    const filas = parseFuentesSheet(text);
+    const desdeD = new Date(fuenteRango.desde.getFullYear(), fuenteRango.desde.getMonth(), fuenteRango.desde.getDate(), 0, 0, 0);
+    const hastaD = new Date(fuenteRango.hasta.getFullYear(), fuenteRango.hasta.getMonth(), fuenteRango.hasta.getDate(), 23, 59, 59);
+
+    const fuentes = {};
+    filas.forEach(f => {
+      if(f.fecha < desdeD || f.fecha > hastaD) return;
+      const key = f.cuenta + ' · ' + f.canal;
+      if(!fuentes[key]) fuentes[key] = { cuenta: f.cuenta, canal: f.canal, leads: 0, agendas: 0, cash: 0 };
+      fuentes[key].leads += f.leads;
+      fuentes[key].agendas += f.agendas;
+      fuentes[key].cash += f.cash;
     });
-    const json = await res.json().catch(() => null);
-    if(!json || json.status !== 'ok') throw new Error(json && json.message ? json.message : 'Respuesta inesperada de Hyros');
-    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes: json.fuentes || {}, fuentesPorSetter: json.fuentesPorSetter || {} };
+
+    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes, fuentesPorSetter: {} };
     return fuenteCache;
   }
 
   function drawFuentePanel(){
     const panel = document.getElementById('fuentePanel');
-    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+    panel.innerHTML = '<div class="rank-loading">Cargando fuentes…</div>';
     fetchFuenteRange().then(resp => {
       const fuentes = resp.fuentes || {};
       const keys = Object.keys(fuentes);
@@ -4941,7 +5054,7 @@
   function drawVpFuentePanel(setterKey){
     const panel = document.getElementById('vpFuentesPanel');
     if(!panel) return;
-    panel.innerHTML = '<div class="rank-loading">Consultando Hyros…</div>';
+    panel.innerHTML = '<div class="rank-loading">Cargando fuentes…</div>';
     fetchFuenteRange().then(resp => {
       const fuentes = (resp.fuentesPorSetter && resp.fuentesPorSetter[setterKey]) || {};
       const keys = Object.keys(fuentes);
@@ -4975,6 +5088,158 @@
       if(vpCurrentSetter) drawVpFuentePanel(vpCurrentSetter);
     });
   });
+
+  // ===== "Matemática del éxito" — meta de $50.000 de facturación =====
+  // OJO: la meta real del negocio es $500.000, pero todo lo que carga acá
+  // (Cash de las 4 hojas) viene con un cero de menos respecto al valor real
+  // — es la misma escala en la que ya se ve "Cash acumulado" en el resto
+  // del dashboard, así que la meta se ajusta a $50.000 para comparar
+  // manzanas con manzanas, sin tener que reescalar los datos del Sheet.
+  //
+  // Facturación histórica = suma de la fila "TOTALES/PROMEDIOS" (todos los
+  // meses) de las 4 hojas de setter — no solo el mes activo. Ritmo actual =
+  // promedio de Cash por día del mes activo hasta hoy (o el mes completo si
+  // se está viendo un mes ya cerrado). No hay una fecha límite pactada para
+  // la meta, así que la "meta diaria por setter" asume llegar antes de fin
+  // de año (31/12) como horizonte razonable — se muestra explícito en el
+  // panel para que no quede ambiguo de dónde sale ese número.
+  const META_FACTURACION = 50000;
+
+  function renderMatematicaDelExito(){
+    const totalHistorico = SETTER_KEYS.reduce((s,k) => s + (cashHistoricoPorSetter[k]||0), 0);
+    const restante = Math.max(0, META_FACTURACION - totalHistorico);
+    const pct = Math.min(100, (totalHistorico / META_FACTURACION) * 100);
+
+    document.getElementById('me-total-historico').textContent = fmtMoney(totalHistorico);
+    document.getElementById('me-progreso-pct').textContent = pct.toFixed(1) + '% de la meta';
+    document.getElementById('me-restante').textContent = fmtMoney(restante);
+    document.getElementById('me-progress-fill').style.width = pct + '%';
+
+    const hoyReal = new Date();
+    const finDeAno = new Date(hoyReal.getFullYear(), 11, 31);
+    const diasHastaFinDeAno = Math.max(1, Math.ceil((finDeAno - hoyReal) / 86400000));
+    const metaDiariaEquipo = restante / diasHastaFinDeAno;
+    const metaDiariaPorSetter = metaDiariaEquipo / SETTER_KEYS.length;
+
+    document.getElementById('me-meta-diaria-equipo').textContent = fmtMoney(metaDiariaEquipo);
+    document.getElementById('me-dias-fin-ano').textContent = `para llegar antes de fin de año (${diasHastaFinDeAno} días restantes)`;
+
+    document.getElementById('me-setters-grid').innerHTML = SETTER_KEYS.map(k => `
+      <div class="perf-card" data-setter="${k}" style="border-color:var(--c-${k});--glow-color:var(--c-${k});">
+        <h4><span class="cdot" style="background:var(--c-${k})"></span>${getDisplayName(k)}</h4>
+        <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
+        <div class="perf-row"><span>Histórico</span><span>${fmtMoney(cashHistoricoPorSetter[k]||0)}</span></div>
+      </div>
+    `).join('');
+
+    const totalesMes = computeMonthTotals();
+    const cashMesActivo = SETTER_KEYS.reduce((s,k)=>s+totalesMes[k].cash,0);
+    const esMesReal = (String(hoyReal.getMonth()+1).padStart(2,'0') === ACTIVE_MONTH_MM && String(hoyReal.getFullYear()) === ACTIVE_MONTH_YYYY);
+    const diasTranscurridos = esMesReal ? hoyReal.getDate() : new Date(Number(ACTIVE_MONTH_YYYY), Number(ACTIVE_MONTH_MM), 0).getDate();
+    const ritmoActual = diasTranscurridos > 0 ? cashMesActivo / diasTranscurridos : 0;
+    const ritmoOptimista = ritmoActual * 1.15;
+    const ritmoPesimista = ritmoActual * 0.85;
+
+    function diasParaMeta(ritmo){
+      if(restante <= 0) return 0;
+      return ritmo > 0 ? Math.ceil(restante/ritmo) : Infinity;
+    }
+    function fechaEnDias(dias){
+      if(!isFinite(dias)) return 'nunca a este ritmo';
+      const d = new Date(hoyReal);
+      d.setDate(d.getDate() + dias);
+      return d.toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
+    }
+    function textoMeta(dias){
+      return restante <= 0 ? '¡Meta alcanzada! 🎉' : `${fechaEnDias(dias)} (${isFinite(dias)?dias+' días':'—'})`;
+    }
+
+    const diasActual = diasParaMeta(ritmoActual);
+    const diasOptimista = diasParaMeta(ritmoOptimista);
+    const diasPesimista = diasParaMeta(ritmoPesimista);
+
+    document.getElementById('me-fecha-actual').textContent = textoMeta(diasActual);
+    document.getElementById('me-fecha-optimista').textContent = textoMeta(diasOptimista);
+    document.getElementById('me-fecha-pesimista').textContent = textoMeta(diasPesimista);
+
+    drawProyeccionChart({
+      totalHistorico,
+      meta: META_FACTURACION,
+      ritmoActual, ritmoOptimista, ritmoPesimista,
+      diasMax: Math.max(30, diasActual, isFinite(diasOptimista)?diasOptimista:0, isFinite(diasPesimista)?diasPesimista:0)
+    });
+  }
+
+  function drawProyeccionChart(p){
+    const svg = document.getElementById('proyeccionChart');
+    if(!svg) return;
+    svg.innerHTML = '';
+
+    const W = 1000, H = 280, padL = 64, padR = 10, padT = 14, padB = 24;
+    const diasMax = Math.min(p.diasMax || 30, 730); // tope de 2 años para que no se vuelva un gráfico absurdo
+    const maxY = p.meta * 1.08;
+
+    function xAt(d){ return padL + (W-padL-padR) * (d/diasMax); }
+    function yAt(v){ return padT + (H-padT-padB) * (1 - Math.min(v,maxY)/maxY); }
+
+    for(let g=0; g<=5; g++){
+      const y = padT + (H-padT-padB) * (1 - g/5);
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1', padL); line.setAttribute('x2', W-padR);
+      line.setAttribute('y1', y); line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#1e1e2a'); line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x', 4); label.setAttribute('y', y+4);
+      label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '11');
+      label.textContent = fmtMoney(maxY * g/5);
+      svg.appendChild(label);
+    }
+
+    const metaY = yAt(p.meta);
+    const metaLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+    metaLine.setAttribute('x1', padL); metaLine.setAttribute('x2', W-padR);
+    metaLine.setAttribute('y1', metaY); metaLine.setAttribute('y2', metaY);
+    metaLine.setAttribute('stroke', '#f5c563'); metaLine.setAttribute('stroke-width', '1.5'); metaLine.setAttribute('stroke-dasharray','6,4');
+    svg.appendChild(metaLine);
+    const metaLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+    metaLabel.setAttribute('x', padL+6); metaLabel.setAttribute('y', metaY-6);
+    metaLabel.setAttribute('fill', '#f5c563'); metaLabel.setAttribute('font-size', '11'); metaLabel.setAttribute('font-weight','700');
+    metaLabel.textContent = 'Meta: ' + fmtMoney(p.meta);
+    svg.appendChild(metaLabel);
+
+    const escenarios = [
+      { ritmo: p.ritmoOptimista, color: '#34d399' },
+      { ritmo: p.ritmoActual, color: '#7c6cf0' },
+      { ritmo: p.ritmoPesimista, color: '#f0568f' }
+    ];
+    escenarios.forEach(esc => {
+      const pasos = 40;
+      const pts = [];
+      for(let i=0;i<=pasos;i++){
+        const d = diasMax * (i/pasos);
+        pts.push([xAt(d), yAt(p.totalHistorico + esc.ritmo * d)]);
+      }
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' '));
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', esc.color);
+      path.setAttribute('stroke-width','2.5');
+      path.setAttribute('stroke-linecap','round');
+      svg.appendChild(path);
+    });
+
+    for(let i=0;i<=4;i++){
+      const d = Math.round(diasMax * i/4);
+      const x = xAt(d);
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x', x); label.setAttribute('y', H-6);
+      label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '11');
+      label.setAttribute('text-anchor', i===0?'start':(i===4?'end':'middle'));
+      label.textContent = d + 'd';
+      svg.appendChild(label);
+    }
+  }
 
   inicializarFechasFuente();
 
