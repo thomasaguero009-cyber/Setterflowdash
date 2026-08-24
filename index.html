@@ -456,9 +456,10 @@
   /* MATEMÁTICA DEL ÉXITO */
   .mate-exito-progress-bar{ margin-top:20px; height:14px; border-radius:999px; background: var(--border); overflow:hidden; }
   .mate-exito-progress-fill{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, var(--purple), var(--green)); transition: width 0.6s ease; }
-  .mate-exito-legend{ display:flex; flex-wrap:wrap; gap:20px; margin-bottom:14px; font-size:13px; color:var(--text-dim); }
-  .mate-exito-legend .cdot{ width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; }
-  .mate-exito-legend b{ color:var(--text); }
+  .mate-exito-proy-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:14px; margin-bottom:20px; }
+  .mate-exito-proy-card{ background: var(--card); border:1px solid var(--border); border-left:4px solid var(--proy-color); border-radius:12px; padding:16px 18px; }
+  .mate-exito-proy-card .tl{ font-size:11.5px; font-weight:800; letter-spacing:0.4px; color:var(--text-dim); text-transform:uppercase; }
+  .mate-exito-proy-card .tv{ font-size:24px; font-weight:800; margin-top:8px; color:var(--proy-color); letter-spacing:-0.3px; }
 
   /* RANKING */
   .rank-toggle{ display:flex; gap:8px; margin-bottom:18px; }
@@ -1083,7 +1084,7 @@
   .toast.show{ opacity:1; transform: translate(-50%, 0); }
 
   @media (max-width: 1000px){
-    .tracker-grid, .rank-grid, .perf-grid{ grid-template-columns: 1fr 1fr; }
+    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid{ grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 720px){
     body{ flex-direction:column; }
@@ -1093,7 +1094,7 @@
     .sidebar-footer{ display:none; }
     header.top{ padding: 20px; flex-direction:column; align-items:flex-start; gap:10px; }
     .page{ padding: 22px 18px; }
-    .tracker-grid, .rank-grid, .perf-grid{ grid-template-columns: 1fr; }
+    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid{ grid-template-columns: 1fr; }
     .metric-card{ grid-template-columns: 1fr !important; grid-template-areas: none; gap:10px; padding:16px; }
     .mc-conv{ text-align:left; }
     .chip-row, .rank-toggle{ flex-wrap: wrap; }
@@ -1664,16 +1665,25 @@
         <div class="perf-grid" id="me-setters-grid"></div>
 
         <div class="section-label" style="margin-top:24px;">Proyección: ¿cuánto vamos a facturar a fin de mes?</div>
-        <div class="mate-exito-legend">
-          <div><span class="cdot" style="background:#34d399"></span> Optimista (+15%): <b id="me-fecha-optimista">-</b></div>
-          <div><span class="cdot" style="background:var(--purple)"></span> Ritmo actual: <b id="me-fecha-actual">-</b></div>
-          <div><span class="cdot" style="background:#f0568f"></span> Pesimista (-15%): <b id="me-fecha-pesimista">-</b></div>
+        <div class="mate-exito-proy-grid">
+          <div class="mate-exito-proy-card" style="--proy-color:#34d399;">
+            <div class="tl">Optimista (+15%)</div>
+            <div class="tv" id="me-fecha-optimista">-</div>
+          </div>
+          <div class="mate-exito-proy-card" style="--proy-color:#7c6cf0;">
+            <div class="tl">Ritmo actual</div>
+            <div class="tv" id="me-fecha-actual">-</div>
+          </div>
+          <div class="mate-exito-proy-card" style="--proy-color:#f0568f;">
+            <div class="tl">Pesimista (-15%)</div>
+            <div class="tv" id="me-fecha-pesimista">-</div>
+          </div>
         </div>
         <div class="chart-wrap">
           <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
-        <div class="data-status">Línea blanca = facturación real acumulada de este mes, día a día. Líneas punteadas = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
+        <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -5132,11 +5142,12 @@
       ? `para lo que queda del mes (${diasRestantes} días restantes)`
       : 'último día del mes';
 
+    const metaMensualPorSetter = META_FACTURACION / SETTER_KEYS.length;
     document.getElementById('me-setters-grid').innerHTML = SETTER_KEYS.map(k => `
       <div class="perf-card" data-setter="${k}" style="border-color:var(--c-${k});--glow-color:var(--c-${k});">
         <h4><span class="cdot" style="background:var(--c-${k})"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
-        <div class="perf-row"><span>Este mes</span><span>${fmtMoney(totalesMes[k].cash)}</span></div>
+        <div class="perf-row"><span>Meta mensual</span><span>${fmtMoney(metaMensualPorSetter)}</span></div>
       </div>
     `).join('');
 
@@ -5213,15 +5224,47 @@
     });
     const ultimoReal = realAcumulado.length ? realAcumulado[realAcumulado.length-1] : 0;
 
+    let pts = [];
     if(realAcumulado.length){
-      const pts = realAcumulado.map((v,i) => [xAt(i+1), yAt(v)]);
+      pts = realAcumulado.map((v,i) => [xAt(i+1), yAt(v)]);
+      const pathD = pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' ');
+
+      // Estela del cohete: una versión ancha y traslúcida de la misma línea
+      // por detrás, para dar sensación de movimiento/humo.
+      const trail = document.createElementNS('http://www.w3.org/2000/svg','path');
+      trail.setAttribute('d', pathD);
+      trail.setAttribute('fill','none');
+      trail.setAttribute('stroke', '#ffffff');
+      trail.setAttribute('stroke-width','7');
+      trail.setAttribute('stroke-linecap','round');
+      trail.setAttribute('stroke-linejoin','round');
+      trail.setAttribute('opacity','0.14');
+      svg.appendChild(trail);
+
       const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-      path.setAttribute('d', pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' '));
+      path.setAttribute('d', pathD);
       path.setAttribute('fill','none');
       path.setAttribute('stroke', '#ffffff');
       path.setAttribute('stroke-width','2.5');
       path.setAttribute('stroke-linecap','round');
+      path.setAttribute('stroke-linejoin','round');
       svg.appendChild(path);
+
+      // 🚀 en la punta, apuntando en la dirección del último tramo recorrido.
+      const [lx, ly] = pts[pts.length-1];
+      const [px2, py2] = pts.length > 1 ? pts[pts.length-2] : [lx-14, ly+6];
+      const anguloGrados = Math.atan2(ly-py2, lx-px2) * 180/Math.PI;
+      const rocket = document.createElementNS('http://www.w3.org/2000/svg','text');
+      rocket.setAttribute('x', lx); rocket.setAttribute('y', ly);
+      rocket.setAttribute('font-size', '20');
+      rocket.setAttribute('text-anchor','middle');
+      rocket.setAttribute('dominant-baseline','central');
+      // El emoji del cohete ya apunta ~45° hacia arriba-derecha por
+      // defecto — se le suma ese offset para que la rotación calculada
+      // (dirección real del tramo) quede alineada con hacia dónde apunta.
+      rocket.setAttribute('transform', `rotate(${anguloGrados + 45}, ${lx}, ${ly})`);
+      rocket.textContent = '🚀';
+      svg.appendChild(rocket);
     }
 
     // Desde hoy (diasTranscurridos) hasta fin de mes, 3 líneas punteadas
@@ -5253,6 +5296,50 @@
       label.setAttribute('text-anchor', i===0?'start':(i===4?'end':'middle'));
       label.textContent = 'Día ' + d;
       svg.appendChild(label);
+    }
+
+    // Tooltip al pasar el mouse sobre la línea real: un rectángulo
+    // invisible por día, igual al mecanismo que ya usa drawChart(). Se
+    // agrega al final (arriba de todo en el SVG) para que agarre el mouse
+    // sin que las líneas punteadas de proyección se interpongan.
+    const tooltip = document.getElementById('proyeccionTooltip');
+    if(tooltip && dates.length){
+      const colW = totalDias > 1 ? (W-padL-padR)/totalDias : (W-padL-padR);
+      dates.forEach((fecha, i) => {
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        hit.setAttribute('x', xAt(i+1) - colW/2);
+        hit.setAttribute('y', 0);
+        hit.setAttribute('width', colW);
+        hit.setAttribute('height', H);
+        hit.setAttribute('fill', 'transparent');
+        hit.style.cursor = 'pointer';
+        const mostrar = () => {
+          const delDia = SETTER_KEYS.reduce((s,k) => s + ((setterSeries[k] && setterSeries[k].cash && setterSeries[k].cash[i]) || 0), 0);
+          const filas = SETTER_KEYS.map(k => {
+            const v = (setterSeries[k] && setterSeries[k].cash && setterSeries[k].cash[i]) || 0;
+            return `<div class="tt-row"><span class="tt-name"><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</span><span class="tt-val" style="color:${colors[k]}">${fmtMoney(v)}</span></div>`;
+          }).join('');
+          tooltip.innerHTML = `
+            <div class="tt-day"><span class="cdot"></span>Día ${fecha}</div>
+            <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(fecha)}</div>
+            ${filas}
+            <div class="tt-row total"><span class="tt-name">Del día</span><span class="tt-val" style="color:var(--green)">${fmtMoney(delDia)}</span></div>
+            <div class="tt-row total"><span class="tt-name">Acumulado</span><span class="tt-val">${fmtMoney(realAcumulado[i])}</span></div>
+          `;
+          const x = xAt(i+1);
+          const wrapWidth = svg.parentElement.clientWidth;
+          const pxRatio = wrapWidth / W;
+          let left = x * pxRatio + 14;
+          if(left + 200 > wrapWidth) left = x * pxRatio - 214;
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = '20px';
+          tooltip.classList.add('show');
+        };
+        hit.addEventListener('mouseenter', mostrar);
+        hit.addEventListener('mousemove', mostrar);
+        hit.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+        svg.appendChild(hit);
+      });
     }
   }
 
