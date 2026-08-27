@@ -437,9 +437,11 @@
   .tracker-card.agendas::before{ background: linear-gradient(90deg, var(--purple), var(--purple-2)); }
   .tracker-card.cash::before{ background: linear-gradient(90deg, #f5c563, #f0a63f); }
   .tracker-card.seg::before{ background: linear-gradient(90deg, var(--green), #10b981); }
+  .tracker-card.organico::before{ background: linear-gradient(90deg, var(--green), var(--purple)); }
   .tracker-card.agendas{ --glow-color: var(--purple); }
   .tracker-card.cash{ --glow-color: #f0a63f; }
   .tracker-card.seg{ --glow-color: var(--green); }
+  .tracker-card.organico{ --glow-color: var(--green); }
   .tracker-card, .perf-card{
     animation: neonPulse 4.2s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite;
     will-change: box-shadow;
@@ -1608,6 +1610,37 @@
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
+      <div class="section-label">💵 Ventas</div>
+      <div class="chart-panel">
+        <div class="tracker-grid">
+          <div class="tracker-card agendas">
+            <div class="tl">Ventas del mes</div>
+            <div class="tv" id="ventas-count-value">—</div>
+          </div>
+          <div class="tracker-card cash">
+            <div class="tl">Ticket promedio</div>
+            <div class="tv" id="ventas-ticket-value">—</div>
+          </div>
+          <div class="tracker-card organico" style="display:flex;align-items:center;gap:18px;">
+            <div id="ventas-pie" style="width:78px;height:78px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
+            <div>
+              <div class="tl" style="margin-bottom:10px;">Orgánico puro vs. mixto</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <span style="display:flex;align-items:center;gap:7px;color:var(--text-dim);font-size:13px;">
+                  <span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+                  Orgánico <b id="ventas-organico-pct" style="color:var(--text);">—</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:7px;color:var(--text-dim);font-size:13px;">
+                  <span style="width:10px;height:10px;border-radius:50%;background:var(--purple);display:inline-block;"></span>
+                  Mixto <b id="ventas-mixto-pct" style="color:var(--text);">—</b>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="data-status" id="ventasStatus">Cargando datos del Google Sheet…</div>
+      </div>
+
       <div class="section-label">📡 Fuentes</div>
       <div class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
@@ -2405,7 +2438,7 @@
 
     // Borramos la caché de 3 minutos para forzar traer los datos posta del Sheet, no una copia guardada
     try{
-      [...SETTER_SHEET_URLS, RECUENTO_URL, FUENTES_SHEET_URL].forEach(url => localStorage.removeItem('sfcache:' + url));
+      [...SETTER_SHEET_URLS, RECUENTO_URL, FUENTES_SHEET_URL, VENTAS_SHEET_URL].forEach(url => localStorage.removeItem('sfcache:' + url));
     } catch(e){}
     fuenteCache = null; // Fuentes tiene su propia caché en memoria aparte (misma duración) — sin esto, "Actualizar" no la tocaba
 
@@ -3998,6 +4031,9 @@
   // Apps Script, lo que dependía de su cuota diaria de UrlFetch — ahora lee
   // directo de acá, igual que el resto de los paneles del dashboard.
   const FUENTES_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=1377956766&single=true&output=csv";
+  // "Ventas (diario)" — agregado diario de los 4 setters (orgánico puro vs.
+  // mixto + cantidad de ventas), lo escribe el mismo backend de Hyros.
+  const VENTAS_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=1515662805&single=true&output=csv";
 
   const colors = { thomi: '#5b9bf0', flor: '#f0568f', valeria: '#a978f0', franco: '#f0745b', todos: '#34d399' };
   // ACTIVE_MONTH_MM, ACTIVE_MONTH_YYYY y MONTH_NAME_TO_MM se movieron arriba de todo
@@ -4067,6 +4103,11 @@
   function fmtMoney(n){ return '$' + Math.round(n).toLocaleString('es-AR'); }
 
   let dataSource = 'demo';
+  // El "despegue" del 🚀 (día 1 → hoy) se anima UNA sola vez, la primera
+  // vez que el gráfico de Matemática del Éxito entra en pantalla — en los
+  // redibujados siguientes (auto-refresh cada 1 min) se muestra directo en
+  // su posición final, sin repetir la animación cada vez.
+  let cohetazoAnimado = false;
 
   // ---- Parse an individual setter sheet (long format) ----
   function parseSetterSheet(text){
@@ -4282,6 +4323,7 @@
     if(recuentoOk) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
+    drawVentasPanel();
     renderMatematicaDelExito();
     showPositiveInsight();
   }
@@ -4989,6 +5031,65 @@
     return out;
   }
 
+  // Fila de "Ventas (diario)": Fecha, Cash orgánico, Cash mixto, Ventas —
+  // un solo renglón agregado por día (suma de los 4 setters). Se suma solo
+  // el mes activo, igual que parseSetterSheet.
+  function parseVentasSheet(text){
+    const rows = parseCSV(text);
+    const out = { cashOrganico: 0, cashMixto: 0, ventas: 0 };
+    let any = false;
+    for(let i=1;i<rows.length;i++){ // fila 0 = encabezado
+      const r = rows[i];
+      const fecha = r[0];
+      if(!fecha || !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(fecha.trim())) continue;
+      const parts = fecha.trim().split('/');
+      const mm = parts[1].padStart(2,'0');
+      const yyyy = parts[2].length === 2 ? '20'+parts[2] : parts[2];
+      if(mm !== ACTIVE_MONTH_MM || yyyy !== ACTIVE_MONTH_YYYY) continue;
+      out.cashOrganico += parseNum(r[1]);
+      out.cashMixto += parseNum(r[2]);
+      out.ventas += parseNum(r[3]);
+      any = true;
+    }
+    return any ? out : null;
+  }
+
+  async function drawVentasPanel(){
+    const status = document.getElementById('ventasStatus');
+    const countEl = document.getElementById('ventas-count-value');
+    const ticketEl = document.getElementById('ventas-ticket-value');
+    const pie = document.getElementById('ventas-pie');
+    const organicoPct = document.getElementById('ventas-organico-pct');
+    const mixtoPct = document.getElementById('ventas-mixto-pct');
+    try{
+      const text = await safeFetchText(VENTAS_SHEET_URL);
+      const resumen = parseVentasSheet(text);
+      if(!resumen || !resumen.ventas){
+        countEl.textContent = '0';
+        ticketEl.textContent = '$0';
+        pie.style.background = 'conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%)';
+        organicoPct.textContent = '—';
+        mixtoPct.textContent = '—';
+        status.textContent = resumen === null
+          ? '⚠️ Todavía no hay datos de ventas para este mes'
+          : '✅ Conectado en vivo al Google Sheet';
+        return;
+      }
+      const cashTotal = resumen.cashOrganico + resumen.cashMixto;
+      const ticket = cashTotal / resumen.ventas;
+      const pctOrganico = cashTotal ? (resumen.cashOrganico / cashTotal * 100) : 0;
+      const pctMixto = 100 - pctOrganico;
+      countEl.textContent = fmtInt(resumen.ventas);
+      ticketEl.textContent = fmtMoney(ticket);
+      pie.style.background = `conic-gradient(var(--green) 0% ${pctOrganico}%, var(--purple) ${pctOrganico}% 100%)`;
+      organicoPct.textContent = Math.round(pctOrganico) + '%';
+      mixtoPct.textContent = Math.round(pctMixto) + '%';
+      status.textContent = '✅ Conectado en vivo al Google Sheet';
+    } catch(err){
+      status.textContent = '⚠️ ' + err.message;
+    }
+  }
+
   // NOTA: "fuentesPorSetter" (usado en "Ver perfil") queda vacío a
   // propósito — "Fuentes (diario)" solo guarda el desglose GLOBAL por
   // cuenta/canal, no separado por setter (eso solo existía pidiéndoselo a
@@ -5226,6 +5327,7 @@
 
     let pts = [];
     let puntaCohete = null; // { x, y, angulo } — se guarda para dibujar el 🚀 DESPUÉS de las líneas de proyección, así queda arriba de todo y no lo tapan
+    let pathReal = null, trailReal = null; // se guardan para poder animarlos después (despegue del cohete)
     if(realAcumulado.length){
       pts = realAcumulado.map((v,i) => [xAt(i+1), yAt(v)]);
       const pathD = pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' ');
@@ -5250,11 +5352,23 @@
       path.setAttribute('stroke-linecap','round');
       path.setAttribute('stroke-linejoin','round');
       svg.appendChild(path);
+      pathReal = path; trailReal = trail;
 
       const [lx, ly] = pts[pts.length-1];
       const [px2, py2] = pts.length > 1 ? pts[pts.length-2] : [lx-14, ly+6];
       const anguloGrados = Math.atan2(ly-py2, lx-px2) * 180/Math.PI;
       puntaCohete = { x: lx, y: ly, angulo: anguloGrados };
+
+      // Primera vez que se ve el gráfico: arranca oculto (el despegue lo
+      // revela) — así no hay parpadeo de "ya dibujado" antes de animar.
+      // Redibujados posteriores (auto-refresh) van directo al final.
+      if(!cohetazoAnimado){
+        const totalLen = path.getTotalLength();
+        path.style.strokeDasharray = totalLen;
+        path.style.strokeDashoffset = totalLen;
+        trail.style.strokeDasharray = totalLen;
+        trail.style.strokeDashoffset = totalLen;
+      }
     }
 
     // Desde hoy (diasTranscurridos) hasta fin de mes, 3 líneas punteadas
@@ -5281,7 +5395,17 @@
     // — si se dibuja antes, esas líneas arrancan justo del mismo punto y
     // quedan pintadas por encima, tapándolo.
     if(puntaCohete){
-      const { x: lx, y: ly, angulo: anguloGrados } = puntaCohete;
+      let { x: lx, y: ly, angulo: anguloGrados } = puntaCohete;
+
+      // Si todavía no se animó el despegue, el cohete arranca en el día 1
+      // (inicio del path) — la animación lo va a mover hasta acá.
+      let anguloInicial = anguloGrados;
+      if(!cohetazoAnimado && pathReal){
+        const inicio = pathReal.getPointAtLength(0);
+        const un_poco_despues = pathReal.getPointAtLength(Math.min(pathReal.getTotalLength(), 2));
+        lx = inicio.x; ly = inicio.y;
+        anguloInicial = Math.atan2(un_poco_despues.y-inicio.y, un_poco_despues.x-inicio.x) * 180/Math.PI;
+      }
 
       const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
       halo.setAttribute('cx', lx); halo.setAttribute('cy', ly); halo.setAttribute('r', '17');
@@ -5300,9 +5424,13 @@
       // El emoji del cohete ya apunta ~45° hacia arriba-derecha por
       // defecto — se le suma ese offset para que la rotación calculada
       // (dirección real del tramo) quede alineada con hacia dónde apunta.
-      rocket.setAttribute('transform', `rotate(${anguloGrados + 45}, ${lx}, ${ly})`);
+      rocket.setAttribute('transform', `rotate(${anguloInicial + 45}, ${lx}, ${ly})`);
       rocket.textContent = '🚀';
       svg.appendChild(rocket);
+
+      if(!cohetazoAnimado && pathReal){
+        prepararDespegueCohete({ path: pathReal, trail: trailReal, rocket, halo, halo2 });
+      }
     }
 
     for(let i=0;i<=4;i++){
@@ -5321,7 +5449,7 @@
     // agrega al final (arriba de todo en el SVG) para que agarre el mouse
     // sin que las líneas punteadas de proyección se interpongan.
     const tooltip = document.getElementById('proyeccionTooltip');
-    if(tooltip && dates.length){
+    if(tooltip){
       const colW = totalDias > 1 ? (W-padL-padR)/totalDias : (W-padL-padR);
       dates.forEach((fecha, i) => {
         const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
@@ -5358,8 +5486,98 @@
         hit.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
         svg.appendChild(hit);
       });
+
+      // Mismo mecanismo pero para los días FUTUROS (la zona punteada): en
+      // vez de mostrar el cash real de ese día (todavía no pasó), muestra
+      // cuánto daría la proyección de cada escenario a esa altura del mes.
+      for(let d = p.diasTranscurridos + 1; d <= totalDias; d++){
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        hit.setAttribute('x', xAt(d) - colW/2);
+        hit.setAttribute('y', 0);
+        hit.setAttribute('width', colW);
+        hit.setAttribute('height', H);
+        hit.setAttribute('fill', 'transparent');
+        hit.style.cursor = 'pointer';
+        const diasFuturos = d - p.diasTranscurridos;
+        const projOptimista = ultimoReal + p.ritmoOptimista * diasFuturos;
+        const projActual = ultimoReal + p.ritmoActual * diasFuturos;
+        const projPesimista = ultimoReal + p.ritmoPesimista * diasFuturos;
+        const mostrar = () => {
+          tooltip.innerHTML = `
+            <div class="tt-day"><span class="cdot"></span>Día ${d} <span style="font-weight:400;color:var(--text-dim);">(proyección)</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#34d399"></span>Optimista</span><span class="tt-val" style="color:#34d399">${fmtMoney(projOptimista)}</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#7c6cf0"></span>Ritmo actual</span><span class="tt-val" style="color:#7c6cf0">${fmtMoney(projActual)}</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#f0568f"></span>Pesimista</span><span class="tt-val" style="color:#f0568f">${fmtMoney(projPesimista)}</span></div>
+          `;
+          const x = xAt(d);
+          const wrapWidth = svg.parentElement.clientWidth;
+          const pxRatio = wrapWidth / W;
+          let left = x * pxRatio + 14;
+          if(left + 200 > wrapWidth) left = x * pxRatio - 214;
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = '20px';
+          tooltip.classList.add('show');
+        };
+        hit.addEventListener('mouseenter', mostrar);
+        hit.addEventListener('mousemove', mostrar);
+        hit.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+        svg.appendChild(hit);
+      }
     }
   }
+
+  // Despegue del 🚀: hace que la línea real (y su estela) se "dibujen" desde
+  // el día 1 mientras el cohete viaja sobre la punta, usando la longitud
+  // real del path (getPointAtLength) para que el movimiento sea parejo sin
+  // importar cuánto varíe el cash día a día. Se dispara una sola vez.
+  function animarDespegueCohete({ path, trail, rocket, halo, halo2 }){
+    const totalLen = path.getTotalLength();
+    const duracionMs = 1800;
+    const inicio = performance.now();
+    function frame(ahora){
+      const t = Math.min(1, (ahora - inicio) / duracionMs);
+      const easedT = 1 - Math.pow(1 - t, 3); // ease-out cúbico
+      const len = totalLen * easedT;
+      const restante = totalLen - len;
+      path.style.strokeDashoffset = restante;
+      trail.style.strokeDashoffset = restante;
+      const pt = path.getPointAtLength(len);
+      const ptAdelante = path.getPointAtLength(Math.min(totalLen, len + 2));
+      const angulo = Math.atan2(ptAdelante.y - pt.y, ptAdelante.x - pt.x) * 180/Math.PI;
+      rocket.setAttribute('x', pt.x); rocket.setAttribute('y', pt.y);
+      rocket.setAttribute('transform', `rotate(${angulo + 45}, ${pt.x}, ${pt.y})`);
+      halo.setAttribute('cx', pt.x); halo.setAttribute('cy', pt.y);
+      halo2.setAttribute('cx', pt.x); halo2.setAttribute('cy', pt.y);
+      if(t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Guarda los elementos del render más reciente para que el
+  // IntersectionObserver (que se define una sola vez, más abajo) los pueda
+  // animar apenas el gráfico entra en pantalla por primera vez.
+  let despegueCoheteElementos = null;
+  function prepararDespegueCohete(elementos){
+    despegueCoheteElementos = elementos;
+  }
+
+  // El SVG de "Matemática del éxito" ya existe en el HTML desde el arranque
+  // (solo su contenido interno se redibuja) — se puede observar una única
+  // vez acá, sin esperar al primer drawProyeccionChart().
+  (function initObserverCohete(){
+    const panelProyeccion = document.getElementById('proyeccionChart');
+    if(!panelProyeccion || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if(!entry.isIntersecting || cohetazoAnimado) return;
+        if(!despegueCoheteElementos) return; // todavía no renderizó el gráfico ni una vez
+        cohetazoAnimado = true;
+        animarDespegueCohete(despegueCoheteElementos);
+        observer.disconnect();
+      });
+    }, { threshold: 0.4 });
+    observer.observe(panelProyeccion);
+  })();
 
   inicializarFechasFuente();
 
