@@ -5225,6 +5225,7 @@
     const ultimoReal = realAcumulado.length ? realAcumulado[realAcumulado.length-1] : 0;
 
     let pts = [];
+    let puntaCohete = null; // { x, y, angulo } — se guarda para dibujar el 🚀 DESPUÉS de las líneas de proyección, así queda arriba de todo y no lo tapan
     if(realAcumulado.length){
       pts = realAcumulado.map((v,i) => [xAt(i+1), yAt(v)]);
       const pathD = pts.map((pt,i) => (i===0?'M':'L') + pt[0] + ',' + pt[1]).join(' ');
@@ -5250,21 +5251,10 @@
       path.setAttribute('stroke-linejoin','round');
       svg.appendChild(path);
 
-      // 🚀 en la punta, apuntando en la dirección del último tramo recorrido.
       const [lx, ly] = pts[pts.length-1];
       const [px2, py2] = pts.length > 1 ? pts[pts.length-2] : [lx-14, ly+6];
       const anguloGrados = Math.atan2(ly-py2, lx-px2) * 180/Math.PI;
-      const rocket = document.createElementNS('http://www.w3.org/2000/svg','text');
-      rocket.setAttribute('x', lx); rocket.setAttribute('y', ly);
-      rocket.setAttribute('font-size', '20');
-      rocket.setAttribute('text-anchor','middle');
-      rocket.setAttribute('dominant-baseline','central');
-      // El emoji del cohete ya apunta ~45° hacia arriba-derecha por
-      // defecto — se le suma ese offset para que la rotación calculada
-      // (dirección real del tramo) quede alineada con hacia dónde apunta.
-      rocket.setAttribute('transform', `rotate(${anguloGrados + 45}, ${lx}, ${ly})`);
-      rocket.textContent = '🚀';
-      svg.appendChild(rocket);
+      puntaCohete = { x: lx, y: ly, angulo: anguloGrados };
     }
 
     // Desde hoy (diasTranscurridos) hasta fin de mes, 3 líneas punteadas
@@ -5286,6 +5276,34 @@
       path.setAttribute('stroke-dasharray','6,4');
       svg.appendChild(path);
     });
+
+    // El 🚀 se dibuja ACÁ (después de las líneas de proyección) a propósito
+    // — si se dibuja antes, esas líneas arrancan justo del mismo punto y
+    // quedan pintadas por encima, tapándolo.
+    if(puntaCohete){
+      const { x: lx, y: ly, angulo: anguloGrados } = puntaCohete;
+
+      const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      halo.setAttribute('cx', lx); halo.setAttribute('cy', ly); halo.setAttribute('r', '17');
+      halo.setAttribute('fill', '#ffffff'); halo.setAttribute('opacity', '0.16');
+      svg.appendChild(halo);
+      const halo2 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      halo2.setAttribute('cx', lx); halo2.setAttribute('cy', ly); halo2.setAttribute('r', '10');
+      halo2.setAttribute('fill', '#ffffff'); halo2.setAttribute('opacity', '0.22');
+      svg.appendChild(halo2);
+
+      const rocket = document.createElementNS('http://www.w3.org/2000/svg','text');
+      rocket.setAttribute('x', lx); rocket.setAttribute('y', ly);
+      rocket.setAttribute('font-size', '34');
+      rocket.setAttribute('text-anchor','middle');
+      rocket.setAttribute('dominant-baseline','central');
+      // El emoji del cohete ya apunta ~45° hacia arriba-derecha por
+      // defecto — se le suma ese offset para que la rotación calculada
+      // (dirección real del tramo) quede alineada con hacia dónde apunta.
+      rocket.setAttribute('transform', `rotate(${anguloGrados + 45}, ${lx}, ${ly})`);
+      rocket.textContent = '🚀';
+      svg.appendChild(rocket);
+    }
 
     for(let i=0;i<=4;i++){
       const d = Math.round(totalDias * i/4) || 1;
