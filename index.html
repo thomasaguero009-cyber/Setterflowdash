@@ -1616,31 +1616,31 @@
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
-      <div class="section-label">💵 Ventas</div>
-      <div class="chart-panel">
-        <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
-          <div style="position:relative;">
-            <button type="button" id="ventasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;">
-              📅 <span id="ventasCalLabel">Este mes</span>
-            </button>
-            <div id="ventasCalPopup" class="fuente-cal-popup" style="display:none;">
-              <div class="fuente-cal-header">
-                <button type="button" id="ventasCalPrev" class="fuente-cal-nav">‹</button>
-                <span id="ventasCalMesLabel"></span>
-                <button type="button" id="ventasCalNext" class="fuente-cal-nav">›</button>
-              </div>
-              <div class="fuente-cal-dow">
-                <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
-              </div>
-              <div class="fuente-cal-grid" id="ventasCalGrid"></div>
-              <div class="fuente-cal-quick">
-                <button type="button" class="ventas-cal-quickbtn" data-quick="hoy">Hoy</button>
-                <button type="button" class="ventas-cal-quickbtn" data-quick="mes">Este mes</button>
-              </div>
-              <button type="button" id="ventasCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>💵 Ventas</span>
+        <div style="position:relative;">
+          <button type="button" id="ventasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;text-transform:none;letter-spacing:normal;">
+            📅 <span id="ventasCalLabel">Este mes</span>
+          </button>
+          <div id="ventasCalPopup" class="fuente-cal-popup" style="display:none;">
+            <div class="fuente-cal-header">
+              <button type="button" id="ventasCalPrev" class="fuente-cal-nav">‹</button>
+              <span id="ventasCalMesLabel"></span>
+              <button type="button" id="ventasCalNext" class="fuente-cal-nav">›</button>
             </div>
+            <div class="fuente-cal-dow">
+              <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
+            </div>
+            <div class="fuente-cal-grid" id="ventasCalGrid"></div>
+            <div class="fuente-cal-quick">
+              <button type="button" class="ventas-cal-quickbtn" data-quick="hoy">Hoy</button>
+              <button type="button" class="ventas-cal-quickbtn" data-quick="mes">Este mes</button>
+            </div>
+            <button type="button" id="ventasCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
           </div>
         </div>
+      </div>
+      <div class="chart-panel">
         <div class="ventas-grid">
           <div class="tracker-card organico" style="display:flex;align-items:center;gap:24px;">
             <div id="ventas-pie" style="width:110px;height:110px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
@@ -5312,7 +5312,8 @@
         canal: r[2] || 'Otro canal',
         leads: parseNum(r[3]),
         agendas: parseNum(r[4]),
-        cash: parseNum(r[5])
+        cash: parseNum(r[5]),
+        setter: (r[6] || '').trim().toLowerCase() // vacío = fila agregada (de siempre); si no, es el desglose de UN setter
       });
     }
     return out;
@@ -5427,11 +5428,11 @@
     mixtoPct.textContent = Math.round(pctMixto) + '%';
   }
 
-  // NOTA: "fuentesPorSetter" (usado en "Ver perfil") queda vacío a
-  // propósito — "Fuentes (diario)" solo guarda el desglose GLOBAL por
-  // cuenta/canal, no separado por setter (eso solo existía pidiéndoselo a
-  // Hyros en vivo). drawVpFuentePanel ya maneja el caso vacío mostrando
-  // "Todavía no hay datos de fuente para este setter." sin romper nada.
+  // "Fuentes (diario)" tiene, por día, filas AGREGADAS (columna Setter
+  // vacía — van a "fuentes", el panel general) Y filas por setter (columna
+  // Setter con su nombre — van a "fuentesPorSetter", usado en "Ver perfil").
+  // Son la MISMA plata contada dos veces a distinto nivel de detalle, por
+  // eso nunca hay que sumar ambos grupos juntos, cada uno se usa aparte.
   async function fetchFuenteRange(){
     if(!fuenteRango.desde || !fuenteRango.hasta) return { fuentes: {}, fuentesPorSetter: {} };
     const fecha = fuenteDDMMYYYY(fuenteRango.desde);
@@ -5448,16 +5449,20 @@
     const hastaD = new Date(fuenteRango.hasta.getFullYear(), fuenteRango.hasta.getMonth(), fuenteRango.hasta.getDate(), 23, 59, 59);
 
     const fuentes = {};
+    const fuentesPorSetter = {};
     filas.forEach(f => {
       if(f.fecha < desdeD || f.fecha > hastaD) return;
       const key = f.cuenta + ' · ' + f.canal;
-      if(!fuentes[key]) fuentes[key] = { cuenta: f.cuenta, canal: f.canal, leads: 0, agendas: 0, cash: 0 };
-      fuentes[key].leads += f.leads;
-      fuentes[key].agendas += f.agendas;
-      fuentes[key].cash += f.cash;
+      const destino = f.setter
+        ? (fuentesPorSetter[f.setter] || (fuentesPorSetter[f.setter] = {}))
+        : fuentes;
+      if(!destino[key]) destino[key] = { cuenta: f.cuenta, canal: f.canal, leads: 0, agendas: 0, cash: 0 };
+      destino[key].leads += f.leads;
+      destino[key].agendas += f.agendas;
+      destino[key].cash += f.cash;
     });
 
-    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes, fuentesPorSetter: {} };
+    fuenteCache = { key: cacheKey, ts: Date.now(), fuentes, fuentesPorSetter };
     return fuenteCache;
   }
 
