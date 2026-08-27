@@ -451,6 +451,11 @@
     0%, 100% { box-shadow: 0 0 5px -2px var(--glow-color); }
     50% { box-shadow: 0 0 18px 1px var(--glow-color); }
   }
+  .cohete-flame{ transform-box: fill-box; transform-origin: center; animation: cohete-flame-flicker 0.35s ease-in-out infinite; }
+  @keyframes cohete-flame-flicker{
+    0%, 100% { transform: scale(0.8); opacity: 0.75; }
+    50% { transform: scale(1.2); opacity: 1; }
+  }
   .tracker-card .tl{ font-size:11.5px; font-weight:800; letter-spacing:0.5px; color:var(--text-dim); text-transform:uppercase; }
   .tracker-card .tv{ font-size:34px; font-weight:800; margin-top:10px; letter-spacing:-0.5px; }
   .tracker-card .tf{ font-size:13px; color:var(--text-dim); margin-top:8px; }
@@ -5748,6 +5753,23 @@
       halo2.setAttribute('fill', '#ffffff'); halo2.setAttribute('opacity', '0.22');
       svg.appendChild(halo2);
 
+      // Llama del motor: dos círculos chiquitos, detrás del cohete
+      // (dirección opuesta a hacia dónde apunta), con un flicker de CSS
+      // para que se sienta con movimiento en vez de una imagen fija.
+      const flamePos = posicionFlama(lx, ly, anguloInicial);
+      const flameOuter = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      flameOuter.setAttribute('cx', flamePos.x); flameOuter.setAttribute('cy', flamePos.y); flameOuter.setAttribute('r', '7');
+      flameOuter.setAttribute('fill', '#ff7a1a'); flameOuter.setAttribute('opacity', '0.85');
+      flameOuter.setAttribute('class', 'cohete-flame');
+      flameOuter.style.animationDelay = '0s';
+      svg.appendChild(flameOuter);
+      const flameInner = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      flameInner.setAttribute('cx', flamePos.x); flameInner.setAttribute('cy', flamePos.y); flameInner.setAttribute('r', '3.5');
+      flameInner.setAttribute('fill', '#ffd23f');
+      flameInner.setAttribute('class', 'cohete-flame');
+      flameInner.style.animationDelay = '0.12s';
+      svg.appendChild(flameInner);
+
       const rocket = document.createElementNS('http://www.w3.org/2000/svg','text');
       rocket.setAttribute('x', lx); rocket.setAttribute('y', ly);
       rocket.setAttribute('font-size', '34');
@@ -5761,7 +5783,7 @@
       svg.appendChild(rocket);
 
       if(!cohetazoAnimado && pathReal){
-        prepararDespegueCohete({ path: pathReal, trail: trailReal, rocket, halo, halo2 });
+        prepararDespegueCohete({ path: pathReal, trail: trailReal, rocket, halo, halo2, flameOuter, flameInner });
       }
     }
 
@@ -5862,7 +5884,15 @@
   // el día 1 mientras el cohete viaja sobre la punta, usando la longitud
   // real del path (getPointAtLength) para que el movimiento sea parejo sin
   // importar cuánto varíe el cash día a día. Se dispara una sola vez.
-  function animarDespegueCohete({ path, trail, rocket, halo, halo2 }){
+  // Posición de la llama: un poco detrás del cohete, en la dirección
+  // CONTRARIA a hacia dónde apunta (el motor queda siempre "para atrás").
+  function posicionFlama(x, y, anguloGrados){
+    const rad = anguloGrados * Math.PI / 180;
+    const dist = 15;
+    return { x: x - Math.cos(rad) * dist, y: y - Math.sin(rad) * dist };
+  }
+
+  function animarDespegueCohete({ path, trail, rocket, halo, halo2, flameOuter, flameInner }){
     const totalLen = path.getTotalLength();
     const duracionMs = 1800;
     const inicio = performance.now();
@@ -5880,6 +5910,9 @@
       rocket.setAttribute('transform', `rotate(${angulo + 45}, ${pt.x}, ${pt.y})`);
       halo.setAttribute('cx', pt.x); halo.setAttribute('cy', pt.y);
       halo2.setAttribute('cx', pt.x); halo2.setAttribute('cy', pt.y);
+      const flamePos = posicionFlama(pt.x, pt.y, angulo);
+      flameOuter.setAttribute('cx', flamePos.x); flameOuter.setAttribute('cy', flamePos.y);
+      flameInner.setAttribute('cx', flamePos.x); flameInner.setAttribute('cy', flamePos.y);
       if(t < 1) requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -5894,21 +5927,29 @@
   }
 
   // El SVG de "Matemática del éxito" ya existe en el HTML desde el arranque
-  // (solo su contenido interno se redibuja) — se puede observar una única
-  // vez acá, sin esperar al primer drawProyeccionChart().
-  (function initObserverCohete(){
-    const panelProyeccion = document.getElementById('proyeccionChart');
-    if(!panelProyeccion || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if(!entry.isIntersecting || cohetazoAnimado) return;
-        if(!despegueCoheteElementos) return; // todavía no renderizó el gráfico ni una vez
-        cohetazoAnimado = true;
-        animarDespegueCohete(despegueCoheteElementos);
-        observer.disconnect();
-      });
-    }, { threshold: 0.4 });
-    observer.observe(panelProyeccion);
+  // (solo su contenido interno se redibuja) — se puede chequear su
+  // posición una única vez acá, sin esperar al primer drawProyeccionChart().
+  // Se usa un chequeo directo en "scroll" (en vez de IntersectionObserver)
+  // calculando a mano qué % del gráfico ya se ve — más predecible y fácil
+  // de ajustar que jugar con thresholds de IntersectionObserver.
+  (function initScrollCohete(){
+    const UMBRAL_VISIBLE = 0.65; // dispara cuando el 65% del gráfico ya entró en pantalla
+    function checkCoheteVisibility(){
+      if(cohetazoAnimado) return;
+      const svgEl = document.getElementById('proyeccionChart');
+      if(!svgEl || !despegueCoheteElementos) return; // todavía no renderizó el gráfico ni una vez
+      const rect = svgEl.getBoundingClientRect();
+      if(rect.height <= 0) return;
+      const visibleTop = Math.max(0, rect.top);
+      const visibleBottom = Math.min(window.innerHeight, rect.bottom);
+      const ratio = Math.max(0, visibleBottom - visibleTop) / rect.height;
+      if(ratio < UMBRAL_VISIBLE) return;
+      cohetazoAnimado = true;
+      animarDespegueCohete(despegueCoheteElementos);
+      window.removeEventListener('scroll', checkCoheteVisibility);
+    }
+    window.addEventListener('scroll', checkCoheteVisibility, { passive: true });
+    checkCoheteVisibility(); // por si ya arranca visible (poco probable, pero por las dudas)
   })();
 
   inicializarFechasFuente();
