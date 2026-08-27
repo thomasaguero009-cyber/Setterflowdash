@@ -1976,6 +1976,29 @@
             </div>
           </div>
 
+          <div class="section-label">🎯 Mi meta de facturación</div>
+          <div class="chart-panel" style="margin-bottom:22px;">
+            <div class="tracker-grid">
+              <div class="tracker-card agendas">
+                <div class="tl">Mi cash este mes</div>
+                <div class="tv" id="miMetaCashActual">$0</div>
+              </div>
+              <div class="tracker-card cash">
+                <div class="tl">Falta para tu meta</div>
+                <div class="tv" id="miMetaRestante">$0</div>
+                <div class="tf" id="miMetaPct">0% de tu meta</div>
+              </div>
+            </div>
+            <div class="mate-exito-progress-bar"><div class="mate-exito-progress-fill" id="miMetaProgressFill"></div></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap;">
+              <label for="miMetaInput" style="font-size:13px;color:var(--text-dim);">¿Cuánto querés facturar este mes?</label>
+              <span style="color:var(--text-dim);">$</span>
+              <input type="number" id="miMetaInput" min="0" step="100" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);width:140px;font-weight:700;">
+              <button type="button" id="miMetaGuardarBtn" class="save-btn">Guardar</button>
+              <span id="miMetaStatus" style="font-size:12.5px;color:var(--text-dim);"></span>
+            </div>
+          </div>
+
           <div class="section-label">📰 Novedades para vos</div>
           <div id="miNoticiasWrap" class="insight-banner" style="display:none;"></div>
         </div>
@@ -3032,7 +3055,7 @@
         });
         const data = await res.json().catch(() => null);
         if(data && data.status === 'ok'){
-          enterMetricas(data.nombre || nombre, data.correo, data.rol, data.apodo, data.telefono, data.avatar, data.cover, data.pensamiento);
+          enterMetricas(data.nombre || nombre, data.correo, data.rol, data.apodo, data.telefono, data.avatar, data.cover, data.pensamiento, data.metaFacturacion);
         } else if(data && data.status === 'pending'){
           els.error.textContent = '';
           els.subtitle.textContent = '';
@@ -3065,7 +3088,7 @@
     error: 'profAuthError'
   });
 
-  function enterMetricas(nombre, correo, rol, apodo, telefono, avatarSync, coverSync, pensamiento){
+  function enterMetricas(nombre, correo, rol, apodo, telefono, avatarSync, coverSync, pensamiento, metaFacturacion){
     try{ localStorage.setItem('setterflow-session-nombre', nombre); } catch(e){}
     if(correo !== undefined){
       try{ localStorage.setItem('setterflow-session-correo', correo || ''); } catch(e){}
@@ -3088,6 +3111,9 @@
     }
     if(pensamiento !== undefined){
       try{ localStorage.setItem('setterflow-session-pensamiento', pensamiento || ''); } catch(e){}
+    }
+    if(metaFacturacion){
+      try{ localStorage.setItem('setterflow-session-metaFacturacion', metaFacturacion); } catch(e){}
     }
     applyMetricasAccess();
     if(getSessionRol() !== 'Invitado'){
@@ -3215,10 +3241,72 @@
       document.getElementById('miCashRank').innerHTML = rankLabel(stats.ranks.cash);
       document.getElementById('miSeguimientosRank').innerHTML = rankLabel(stats.ranks.seguimientos);
       renderPersonalInsights(matchKey);
+      renderMiMeta(matchKey, stats.cash);
     } catch(e){
       wrap.style.display = 'none';
     }
   }
+
+  // Meta de facturación PERSONAL (editable) — no tiene nada que ver con la
+  // meta compartida de $50.000 del equipo ("Matemática del éxito" en
+  // Inicio). Cada setter la define a su gusto desde "Mi Perfil"; si
+  // todavía no puso ninguna, se usa como referencia inicial la parte que
+  // le tocaría de esa meta compartida (50.000/4).
+  function getMiMetaGuardada(){
+    let meta = 0;
+    try{ meta = Number(localStorage.getItem('setterflow-session-metaFacturacion')) || 0; } catch(e){}
+    return meta > 0 ? meta : 12500;
+  }
+
+  function renderMiMeta(matchKey, cashDelMes){
+    const cashEl = document.getElementById('miMetaCashActual');
+    if(!cashEl) return;
+    const meta = getMiMetaGuardada();
+    const cash = cashDelMes || 0;
+    const restante = Math.max(0, meta - cash);
+    const pct = meta ? Math.min(100, (cash / meta) * 100) : 0;
+    cashEl.textContent = fmtMoney(cash);
+    document.getElementById('miMetaRestante').textContent = fmtMoney(restante);
+    document.getElementById('miMetaPct').textContent = pct.toFixed(1) + '% de tu meta';
+    document.getElementById('miMetaProgressFill').style.width = pct + '%';
+    const input = document.getElementById('miMetaInput');
+    if(input && document.activeElement !== input) input.value = meta;
+  }
+
+  document.getElementById('miMetaGuardarBtn').addEventListener('click', async () => {
+    const input = document.getElementById('miMetaInput');
+    const status = document.getElementById('miMetaStatus');
+    let nombre = null;
+    try{ nombre = localStorage.getItem('setterflow-session-nombre'); } catch(e){}
+    const metaFacturacion = Number(input.value);
+    if(!nombre){ status.textContent = 'Iniciá sesión primero.'; return; }
+    if(!metaFacturacion || metaFacturacion <= 0){ status.textContent = 'Ingresá un monto válido.'; return; }
+
+    status.textContent = 'Guardando…';
+    try{
+      const res = await fetch(WRITE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'updatemeta', nombre, metaFacturacion })
+      });
+      const data = await res.json().catch(() => null);
+      if(data && data.status === 'ok'){
+        try{ localStorage.setItem('setterflow-session-metaFacturacion', metaFacturacion); } catch(e){}
+        status.textContent = '✅ Guardado';
+        const lower = nombre.toLowerCase();
+        const matchKey = SETTER_KEYS.find(k => k === lower || NAME_CAP(k).toLowerCase() === lower);
+        if(matchKey){
+          const stats = computeSetterMonthStats(matchKey);
+          renderMiMeta(matchKey, stats ? stats.cash : 0);
+        }
+      } else {
+        status.textContent = '⚠️ ' + ((data && data.message) || 'No se pudo guardar.');
+      }
+    } catch(err){
+      status.textContent = '⚠️ No se pudo conectar con el servidor.';
+    }
+    setTimeout(() => { if(status.textContent.startsWith('✅')) status.textContent = ''; }, 3000);
+  });
 
   function buildPersonalInsights(matchKey){
     const pool = [];
