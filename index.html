@@ -422,7 +422,6 @@
 
   /* TRACKER CARDS */
   .tracker-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:20px; }
-  .ventas-grid{ display:grid; grid-template-columns: 1.6fr 1fr; gap:20px; align-items:stretch; }
   .tracker-card{
     background: var(--card);
     border: 1px solid var(--border);
@@ -1087,7 +1086,7 @@
   .toast.show{ opacity:1; transform: translate(-50%, 0); }
 
   @media (max-width: 1000px){
-    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid, .ventas-grid{ grid-template-columns: 1fr 1fr; }
+    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid{ grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 720px){
     body{ flex-direction:column; }
@@ -1097,7 +1096,7 @@
     .sidebar-footer{ display:none; }
     header.top{ padding: 20px; flex-direction:column; align-items:flex-start; gap:10px; }
     .page{ padding: 22px 18px; }
-    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid, .ventas-grid{ grid-template-columns: 1fr; }
+    .tracker-grid, .rank-grid, .perf-grid, .mate-exito-proy-grid{ grid-template-columns: 1fr; }
     .metric-card{ grid-template-columns: 1fr !important; grid-template-areas: none; gap:10px; padding:16px; }
     .mc-conv{ text-align:left; }
     .chip-row, .rank-toggle{ flex-wrap: wrap; }
@@ -1613,32 +1612,17 @@
 
       <div class="section-label">💵 Ventas</div>
       <div class="chart-panel">
-        <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
-          <div style="position:relative;">
-            <button type="button" id="ventasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;">
-              📅 <span id="ventasCalLabel">Este mes</span>
-            </button>
-            <div id="ventasCalPopup" class="fuente-cal-popup" style="display:none;">
-              <div class="fuente-cal-header">
-                <button type="button" id="ventasCalPrev" class="fuente-cal-nav">‹</button>
-                <span id="ventasCalMesLabel"></span>
-                <button type="button" id="ventasCalNext" class="fuente-cal-nav">›</button>
-              </div>
-              <div class="fuente-cal-dow">
-                <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
-              </div>
-              <div class="fuente-cal-grid" id="ventasCalGrid"></div>
-              <div class="fuente-cal-quick">
-                <button type="button" class="ventas-cal-quickbtn" data-quick="hoy">Hoy</button>
-                <button type="button" class="ventas-cal-quickbtn" data-quick="mes">Este mes</button>
-              </div>
-              <button type="button" id="ventasCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
-            </div>
+        <div class="tracker-grid">
+          <div class="tracker-card agendas">
+            <div class="tl">Ventas del mes</div>
+            <div class="tv" id="ventas-count-value">—</div>
           </div>
-        </div>
-        <div class="ventas-grid">
-          <div class="tracker-card organico" style="display:flex;align-items:center;gap:24px;">
-            <div id="ventas-pie" style="width:110px;height:110px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
+          <div class="tracker-card cash">
+            <div class="tl">Ticket promedio</div>
+            <div class="tv" id="ventas-ticket-value">—</div>
+          </div>
+          <div class="tracker-card organico" style="display:flex;align-items:center;gap:18px;">
+            <div id="ventas-pie" style="width:78px;height:78px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
             <div>
               <div class="tl" style="margin-bottom:10px;">Orgánico puro vs. mixto</div>
               <div style="display:flex;flex-direction:column;gap:6px;">
@@ -1651,16 +1635,6 @@
                   Mixto <b id="ventas-mixto-pct" style="color:var(--text);">—</b>
                 </span>
               </div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:20px;">
-            <div class="tracker-card agendas">
-              <div class="tl">Ventas</div>
-              <div class="tv" id="ventas-count-value">—</div>
-            </div>
-            <div class="tracker-card cash">
-              <div class="tl">Ticket promedio</div>
-              <div class="tv" id="ventas-ticket-value">—</div>
             </div>
           </div>
         </div>
@@ -1817,38 +1791,6 @@
             <div class="chart-wrap" style="margin-top:2px;">
               <svg class="chart" viewBox="0 0 1000 220" preserveAspectRatio="none" id="vpTrendChart" style="width:100%;height:220px;"></svg>
               <div class="chart-tooltip" id="vpChartTooltip"></div>
-            </div>
-          </div>
-
-          <div style="margin-top:24px;">
-            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">💵 Ventas <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
-            <div class="ventas-grid" style="gap:14px;">
-              <div class="tracker-card organico" style="display:flex;align-items:center;gap:16px;padding:16px;">
-                <div id="vp-ventas-pie" style="width:64px;height:64px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
-                <div>
-                  <div class="tl" style="margin-bottom:6px;">Orgánico vs. mixto</div>
-                  <div style="display:flex;flex-direction:column;gap:4px;">
-                    <span style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:12px;">
-                      <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>
-                      Orgánico <b id="vp-ventas-organico-pct" style="color:var(--text);">—</b>
-                    </span>
-                    <span style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:12px;">
-                      <span style="width:8px;height:8px;border-radius:50%;background:var(--purple);display:inline-block;"></span>
-                      Mixto <b id="vp-ventas-mixto-pct" style="color:var(--text);">—</b>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div class="tracker-card agendas" style="padding:14px;">
-                  <div class="tl">Ventas</div>
-                  <div class="tv" id="vp-ventas-count-value" style="font-size:26px;">—</div>
-                </div>
-                <div class="tracker-card cash" style="padding:14px;">
-                  <div class="tl">Ticket promedio</div>
-                  <div class="tv" id="vp-ventas-ticket-value" style="font-size:26px;">—</div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -3313,8 +3255,6 @@
     if(vpMetricDefaultBtn) vpMetricDefaultBtn.classList.add('active');
     drawVpChart(setterKey);
 
-    drawVpVentasPanel(setterKey);
-
     vpFuenteMetricActual = 'agendas';
     document.querySelectorAll('#vpFuenteToggle .rt-btn').forEach(b => b.classList.remove('active'));
     const vpFuenteDefaultBtn = document.querySelector('#vpFuenteToggle .rt-btn[data-vp-fuente-metric="agendas"]');
@@ -4190,13 +4130,10 @@
     const idx = {
       fecha: header.findIndex(h => h.includes('fecha')),
       seg:   header.findIndex(h => h.includes('seguim')),
-      cash:  header.findIndex(h => h.includes('cash') && !h.includes('orgánico') && !h.includes('mixto')),
+      cash:  header.findIndex(h => h.includes('cash')),
       horas: header.findIndex(h => h.includes('hora')),
       agendas: header.findIndex(h => h.includes('agenda')),
-      leads: header.findIndex(h => h.includes('lead')),
-      cashOrganico: header.findIndex(h => h.includes('orgánico')),
-      cashMixto: header.findIndex(h => h.includes('mixto')),
-      ventasCount: header.findIndex(h => h.includes('venta'))
+      leads: header.findIndex(h => h.includes('lead'))
     };
 
     // La fila "TOTALES / PROMEDIOS" (fila 5) ya trae la suma histórica de
@@ -4205,7 +4142,7 @@
     // $50.000), sin tener que sumar mes por mes acá.
     let cashHistorico = 0;
 
-    const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [], cashOrganico: [], cashMixto: [], ventasCount: [] };
+    const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [] };
     for(let i=headerRow+1;i<rows.length;i++){
       const r = rows[i];
       const fecha = r[idx.fecha];
@@ -4225,9 +4162,6 @@
       out.horas.push(parseNum(r[idx.horas]));
       out.agendas.push(parseNum(r[idx.agendas]));
       out.leads.push(idx.leads > -1 ? parseNum(r[idx.leads]) : 0);
-      out.cashOrganico.push(idx.cashOrganico > -1 ? parseNum(r[idx.cashOrganico]) : 0);
-      out.cashMixto.push(idx.cashMixto > -1 ? parseNum(r[idx.cashMixto]) : 0);
-      out.ventasCount.push(idx.ventasCount > -1 ? parseNum(r[idx.ventasCount]) : 0);
     }
     return out.dates.length ? { key: setterKey, series: out, cashHistorico } : null;
   }
@@ -5077,134 +5011,6 @@
     drawFuentePanel();
   });
 
-  // ===== Calendario de "Ventas" — mismo mecanismo que el de Fuentes de
-  // arriba (copiado a propósito, no generalizado, siguiendo el mismo
-  // patrón que ya usan Ranking y Fuentes cada uno con su propio estado) =====
-  let ventasRango = { desde: null, hasta: null };
-  let ventasCalMes = new Date();
-  let ventasCalTemp = { desde: null, hasta: null };
-
-  function actualizarVentasLabelCalendario(){
-    const label = document.getElementById('ventasCalLabel');
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    if(fuenteMismoDia(ventasRango.desde, primerDiaMes) && fuenteMismoDia(ventasRango.hasta, hoy)){
-      label.textContent = 'Este mes';
-    } else if(fuenteMismoDia(ventasRango.desde, ventasRango.hasta)){
-      label.textContent = fuenteDDMMYYYY(ventasRango.desde);
-    } else {
-      label.textContent = fuenteDDMMYYYY(ventasRango.desde) + ' → ' + fuenteDDMMYYYY(ventasRango.hasta);
-    }
-  }
-
-  function inicializarFechasVentas(){
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    ventasRango = { desde: primerDiaMes, hasta: hoy };
-    ventasCalMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    actualizarVentasLabelCalendario();
-  }
-
-  function renderVentasCalendarioPopup(){
-    document.getElementById('ventasCalMesLabel').textContent = MESES_FUENTE[ventasCalMes.getMonth()] + ' ' + ventasCalMes.getFullYear();
-    const grid = document.getElementById('ventasCalGrid');
-    const primerDia = new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth(), 1);
-    const startOffset = primerDia.getDay();
-    const diasEnMes = new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth()+1, 0).getDate();
-    const diasMesAnterior = new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth(), 0).getDate();
-    const hoy = new Date();
-
-    const celdas = [];
-    for(let i=startOffset-1;i>=0;i--){
-      celdas.push({ dia: diasMesAnterior - i, fecha: new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth()-1, diasMesAnterior - i), outside: true });
-    }
-    for(let d=1; d<=diasEnMes; d++){
-      celdas.push({ dia: d, fecha: new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth(), d), outside: false });
-    }
-    let siguienteDia = 1;
-    while(celdas.length < 42){
-      celdas.push({ dia: siguienteDia, fecha: new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth()+1, siguienteDia), outside: true });
-      siguienteDia++;
-    }
-
-    const desde = ventasCalTemp.desde, hasta = ventasCalTemp.hasta;
-    grid.innerHTML = celdas.map(c => {
-      const classes = ['fuente-cal-day'];
-      if(c.outside) classes.push('outside');
-      if(fuenteMismoDia(c.fecha, hoy)) classes.push('today');
-      if(desde && hasta){
-        if(c.fecha >= desde && c.fecha <= hasta) classes.push('in-range');
-        if(fuenteMismoDia(c.fecha, desde)) classes.push('range-start');
-        if(fuenteMismoDia(c.fecha, hasta)) classes.push('range-end');
-      } else if(desde && fuenteMismoDia(c.fecha, desde)){
-        classes.push('range-start', 'range-end');
-      }
-      return `<button type="button" class="${classes.join(' ')}" data-time="${c.fecha.getTime()}">${c.dia}</button>`;
-    }).join('');
-  }
-
-  function abrirVentasCalendarioPopup(){
-    ventasCalMes = new Date(ventasRango.desde.getFullYear(), ventasRango.desde.getMonth(), 1);
-    ventasCalTemp = { desde: ventasRango.desde, hasta: ventasRango.hasta };
-    renderVentasCalendarioPopup();
-    document.getElementById('ventasCalPopup').style.display = 'block';
-  }
-
-  function cerrarVentasCalendarioPopup(){
-    document.getElementById('ventasCalPopup').style.display = 'none';
-  }
-
-  document.getElementById('ventasCalBtn').addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const popup = document.getElementById('ventasCalPopup');
-    if(popup.style.display === 'block') cerrarVentasCalendarioPopup();
-    else abrirVentasCalendarioPopup();
-  });
-  document.getElementById('ventasCalPopup').addEventListener('click', (ev) => ev.stopPropagation());
-  document.addEventListener('click', cerrarVentasCalendarioPopup);
-
-  document.getElementById('ventasCalPrev').addEventListener('click', () => {
-    ventasCalMes = new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth()-1, 1);
-    renderVentasCalendarioPopup();
-  });
-  document.getElementById('ventasCalNext').addEventListener('click', () => {
-    ventasCalMes = new Date(ventasCalMes.getFullYear(), ventasCalMes.getMonth()+1, 1);
-    renderVentasCalendarioPopup();
-  });
-
-  document.getElementById('ventasCalGrid').addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.fuente-cal-day');
-    if(!btn) return;
-    const fecha = new Date(Number(btn.dataset.time));
-    if(!ventasCalTemp.desde || (ventasCalTemp.desde && ventasCalTemp.hasta)){
-      ventasCalTemp = { desde: fecha, hasta: null };
-    } else if(fecha < ventasCalTemp.desde){
-      ventasCalTemp = { desde: fecha, hasta: ventasCalTemp.desde };
-    } else {
-      ventasCalTemp = { desde: ventasCalTemp.desde, hasta: fecha };
-    }
-    renderVentasCalendarioPopup();
-  });
-
-  document.querySelectorAll('.ventas-cal-quickbtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const hoy = new Date();
-      ventasCalTemp = btn.dataset.quick === 'hoy'
-        ? { desde: hoy, hasta: hoy }
-        : { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy };
-      ventasCalMes = new Date(ventasCalTemp.desde.getFullYear(), ventasCalTemp.desde.getMonth(), 1);
-      renderVentasCalendarioPopup();
-    });
-  });
-
-  document.getElementById('ventasCalAplicar').addEventListener('click', () => {
-    if(!ventasCalTemp.desde) return;
-    ventasRango = { desde: ventasCalTemp.desde, hasta: ventasCalTemp.hasta || ventasCalTemp.desde };
-    actualizarVentasLabelCalendario();
-    cerrarVentasCalendarioPopup();
-    drawVentasPanel();
-  });
-
   // Fila de "Fuentes (diario)": Fecha, Cuenta, Canal, Leads, Agendas, Cash
   // (mismo orden de columnas que escribe el backend de Netlify).
   function parseFuentesSheet(text){
@@ -5228,24 +5034,24 @@
   // Fila de "Ventas (diario)": Fecha, Cash orgánico, Cash mixto, Ventas —
   // un solo renglón agregado por día (suma de los 4 setters). Se suma solo
   // el mes activo, igual que parseSetterSheet.
-  // Devuelve TODAS las filas parseadas (sin filtrar por fecha) — el
-  // filtrado por rango lo hace drawVentasPanel, igual que fetchFuenteRange
-  // hace con "Fuentes (diario)".
   function parseVentasSheet(text){
     const rows = parseCSV(text);
-    const out = [];
+    const out = { cashOrganico: 0, cashMixto: 0, ventas: 0 };
+    let any = false;
     for(let i=1;i<rows.length;i++){ // fila 0 = encabezado
       const r = rows[i];
       const fecha = r[0];
       if(!fecha || !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(fecha.trim())) continue;
-      out.push({
-        fecha: parseDDMMYYYY(fecha.trim()),
-        cashOrganico: parseNum(r[1]),
-        cashMixto: parseNum(r[2]),
-        ventas: parseNum(r[3])
-      });
+      const parts = fecha.trim().split('/');
+      const mm = parts[1].padStart(2,'0');
+      const yyyy = parts[2].length === 2 ? '20'+parts[2] : parts[2];
+      if(mm !== ACTIVE_MONTH_MM || yyyy !== ACTIVE_MONTH_YYYY) continue;
+      out.cashOrganico += parseNum(r[1]);
+      out.cashMixto += parseNum(r[2]);
+      out.ventas += parseNum(r[3]);
+      any = true;
     }
-    return out;
+    return any ? out : null;
   }
 
   async function drawVentasPanel(){
@@ -5255,29 +5061,18 @@
     const pie = document.getElementById('ventas-pie');
     const organicoPct = document.getElementById('ventas-organico-pct');
     const mixtoPct = document.getElementById('ventas-mixto-pct');
-    if(!ventasRango.desde || !ventasRango.hasta) return;
     try{
       const text = await safeFetchText(VENTAS_SHEET_URL);
-      const filas = parseVentasSheet(text);
-      const desdeD = new Date(ventasRango.desde.getFullYear(), ventasRango.desde.getMonth(), ventasRango.desde.getDate(), 0, 0, 0);
-      const hastaD = new Date(ventasRango.hasta.getFullYear(), ventasRango.hasta.getMonth(), ventasRango.hasta.getDate(), 23, 59, 59);
-      const resumen = filas.reduce((acc, f) => {
-        if(f.fecha < desdeD || f.fecha > hastaD) return acc;
-        acc.cashOrganico += f.cashOrganico;
-        acc.cashMixto += f.cashMixto;
-        acc.ventas += f.ventas;
-        return acc;
-      }, { cashOrganico: 0, cashMixto: 0, ventas: 0 });
-
-      if(!resumen.ventas){
+      const resumen = parseVentasSheet(text);
+      if(!resumen || !resumen.ventas){
         countEl.textContent = '0';
         ticketEl.textContent = '$0';
         pie.style.background = 'conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%)';
         organicoPct.textContent = '—';
         mixtoPct.textContent = '—';
-        status.textContent = filas.length
-          ? '✅ Conectado en vivo al Google Sheet'
-          : '⚠️ Todavía no hay datos de ventas para ese rango';
+        status.textContent = resumen === null
+          ? '⚠️ Todavía no hay datos de ventas para este mes'
+          : '✅ Conectado en vivo al Google Sheet';
         return;
       }
       const cashTotal = resumen.cashOrganico + resumen.cashMixto;
@@ -5293,45 +5088,6 @@
     } catch(err){
       status.textContent = '⚠️ ' + err.message;
     }
-  }
-
-  // Versión INDIVIDUAL del panel de Ventas para "Ver perfil" — a diferencia
-  // de drawVentasPanel() (que pega contra la hoja "Ventas (diario)", el
-  // agregado de los 4 setters), acá los datos ya están en memoria en
-  // setterSeries[setterKey] (columnas I/J/K de la hoja de ESE setter,
-  // filtradas al mes activo por parseSetterSheet) — no hace falta un fetch
-  // aparte.
-  function drawVpVentasPanel(setterKey){
-    const countEl = document.getElementById('vp-ventas-count-value');
-    const ticketEl = document.getElementById('vp-ventas-ticket-value');
-    const pie = document.getElementById('vp-ventas-pie');
-    const organicoPct = document.getElementById('vp-ventas-organico-pct');
-    const mixtoPct = document.getElementById('vp-ventas-mixto-pct');
-    if(!countEl) return;
-
-    const s = setterSeries[setterKey] || {};
-    const suma = (arr) => (arr || []).reduce((a,b) => a+b, 0);
-    const cashOrganico = suma(s.cashOrganico);
-    const cashMixto = suma(s.cashMixto);
-    const ventas = suma(s.ventasCount);
-
-    if(!ventas){
-      countEl.textContent = '0';
-      ticketEl.textContent = '$0';
-      pie.style.background = 'conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%)';
-      organicoPct.textContent = '—';
-      mixtoPct.textContent = '—';
-      return;
-    }
-    const cashTotal = cashOrganico + cashMixto;
-    const ticket = cashTotal / ventas;
-    const pctOrganico = cashTotal ? (cashOrganico / cashTotal * 100) : 0;
-    const pctMixto = 100 - pctOrganico;
-    countEl.textContent = fmtInt(ventas);
-    ticketEl.textContent = fmtMoney(ticket);
-    pie.style.background = `conic-gradient(var(--green) 0% ${pctOrganico}%, var(--purple) ${pctOrganico}% 100%)`;
-    organicoPct.textContent = Math.round(pctOrganico) + '%';
-    mixtoPct.textContent = Math.round(pctMixto) + '%';
   }
 
   // NOTA: "fuentesPorSetter" (usado en "Ver perfil") queda vacío a
@@ -5824,7 +5580,6 @@
   })();
 
   inicializarFechasFuente();
-  inicializarFechasVentas();
 
   document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', function(){
