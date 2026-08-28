@@ -1,0 +1,12 @@
+{
+  "name": "setterflow-hyros-sync-github-actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sync de Hyros -> Google Sheets, corriendo en GitHub Actions en vez de Netlify Functions (Netlify quedó pausado por límite de crédito del team).",
+  "dependencies": {
+    "googleapis": "^140.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
