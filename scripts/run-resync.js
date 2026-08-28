@@ -18,12 +18,25 @@ async function main() {
     if (i > 0) await sleep(1500); // evita el rate-limit de lecturas/min de Sheets API
     const fecha = fechaHaceNDias(i);
     try {
-      await syncHyrosUnaVez(sheets, apiKey, fecha);
+      await syncConReintentoSiCuota(sheets, apiKey, fecha);
       console.log("OK " + fecha);
     } catch (err) {
       console.error("ERROR (" + fecha + "): " + err.message);
       process.exitCode = 1;
     }
+  }
+}
+
+// Si choca con la cuota de Sheets API (ej. porque el cron de 6h de
+// run-resync-mes.js corrió justo al mismo tiempo), espera y reintenta una
+// vez en vez de dar por perdido ese día hasta la próxima corrida (15 min).
+async function syncConReintentoSiCuota(sheets, apiKey, fecha) {
+  try {
+    await syncHyrosUnaVez(sheets, apiKey, fecha);
+  } catch (err) {
+    if (!/Quota exceeded/i.test(err.message)) throw err;
+    await sleep(10000);
+    await syncHyrosUnaVez(sheets, apiKey, fecha);
   }
 }
 
