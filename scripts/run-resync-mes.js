@@ -21,7 +21,9 @@ async function main() {
   const sheets = await getSheetsClient();
   console.log(`Re-sincronizando ${dias.length} día(s): ${dias.join(", ")}`);
 
-  for (const fecha of dias) {
+  for (let i = 0; i < dias.length; i++) {
+    if (i > 0) await sleep(1500); // evita el rate-limit de lecturas/min de Sheets API
+    const fecha = dias[i];
     try {
       await syncHyrosUnaVez(sheets, apiKey, fecha);
       console.log("OK " + fecha);
@@ -30,6 +32,10 @@ async function main() {
       process.exitCode = 1;
     }
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function hoyEnTZ() {
