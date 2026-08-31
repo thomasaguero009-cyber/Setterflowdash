@@ -753,7 +753,8 @@ const HYROS_ACCOUNT_NAMES = {
   ct15: 'teotinivelli',
   ct16: 'teotinivelliprime',
   ct07: 'tinosinfiltro',
-  ct12: 'tinohub'
+  ct12: 'tinohub',
+  ct11: 'tinolifestylee'
 };
 const HYROS_CHANNEL_NAMES = {
   ig: 'Instagram',
@@ -876,12 +877,10 @@ function hyrosFetchDataForDate(apiKey, fecha, fechaHasta) {
     dias.push({ dd: String(d.getDate()).padStart(2, '0'), mm: String(d.getMonth() + 1).padStart(2, '0'), yyyy: d.getFullYear() });
   }
 
-  const data = {
-    thomi: { cash: 0, leads: 0, agendas: 0 },
-    flor: { cash: 0, leads: 0, agendas: 0 },
-    valeria: { cash: 0, leads: 0, agendas: 0 },
-    franco: { cash: 0, leads: 0, agendas: 0 }
-  };
+  const data = {};
+  Object.keys(SHEET_NAMES).forEach(function (setter) {
+    data[setter] = { cash: 0, leads: 0, agendas: 0 };
+  });
   // "fuentes": lo mismo que "data" pero agrupado por cuenta/canal de
   // origen (tino.mossu, teotinivelli, etc. · Instagram/TikTok/...) en vez
   // de por setter — para el panel "Por fuente" del dashboard. Se calcula
@@ -891,7 +890,8 @@ function hyrosFetchDataForDate(apiKey, fecha, fechaHasta) {
   // "fuentesPorSetter": lo mismo pero UNA COPIA separada por cada setter —
   // para el panel "Fuentes" que se ve dentro de "Ver perfil" de cada
   // persona (de qué cuenta/canal vienen SUS leads/agendas/ventas puntual).
-  const fuentesPorSetter = { thomi: {}, flor: {}, valeria: {}, franco: {} };
+  const fuentesPorSetter = {};
+  Object.keys(SHEET_NAMES).forEach(function (setter) { fuentesPorSetter[setter] = {}; });
 
   // Se probó cambiar esto a lastSource (el campo "Source" que se ve en el
   // panel de Hyros) pensando que iba a coincidir mejor, pero probado
@@ -1503,7 +1503,8 @@ function diagnosticoUnDia() {
     let total = 0;
     let reasignados = 0; // matchean con MÁS de un setter a la vez
     let sinSetter = 0;   // no matchean con ningún setter
-    const porSetter = { thomi: 0, flor: 0, valeria: 0, franco: 0 };
+    const porSetter = {};
+    Object.keys(SHEET_NAMES).forEach(function (setter) { porSetter[setter] = 0; });
     forEachFn(apiKey, fromDate, toDate, (item) => {
       total++;
       const tags = nombre === 'Leads' ? item.tags : (item.lead && item.lead.tags);
