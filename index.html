@@ -1617,12 +1617,8 @@
 
       <div class="section-label">📈 Métricas - Setters</div>
       <div class="chart-panel">
-        <div class="chip-row">
-          <div class="setter-chip" style="border-color:var(--c-thomi);color:var(--c-thomi)" data-setter="thomi"><span class="cdot" style="background:var(--c-thomi)"></span>THOMI</div>
-          <div class="setter-chip" style="border-color:var(--c-flor);color:var(--c-flor)" data-setter="flor"><span class="cdot" style="background:var(--c-flor)"></span>FLOR</div>
-          <div class="setter-chip" style="border-color:var(--c-valeria);color:var(--c-valeria)" data-setter="valeria"><span class="cdot" style="background:var(--c-valeria)"></span>VALERIA</div>
-          <div class="setter-chip" style="border-color:var(--c-franco);color:var(--c-franco)" data-setter="franco"><span class="cdot" style="background:var(--c-franco)"></span>FRANCO</div>
-          <div class="setter-chip active-chip" style="border-color:var(--green);color:var(--green)" data-setter="todos"><span class="cdot" style="background:var(--green)"></span>TODOS</div>
+        <div class="chip-row" id="chip-row">
+          <!-- Los chips de cada setter se generan en JS desde el array SETTERS (buscá "renderSettersDom") — este bloque queda vacío a propósito. -->
         </div>
         <div class="rank-toggle metric-toggle">
           <div class="rt-btn active">Agendas</div>
@@ -1774,43 +1770,8 @@
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
-      <div class="perf-grid">
-        <div class="perf-card" data-setter="thomi" style="border-color:var(--c-thomi);--glow-color:var(--c-thomi);">
-          <h4><span class="cdot" style="background:var(--c-thomi)"></span>Thomi</h4>
-          <div class="perf-row"><span>Seguimientos</span><span id="pf-thomi-seg">73</span></div>
-          <div class="perf-row"><span>Cash</span><span id="pf-thomi-cash">$135</span></div>
-          <div class="perf-row"><span>Horas</span><span id="pf-thomi-horas">132.0h</span></div>
-          <div class="perf-row"><span>Agendas</span><span id="pf-thomi-agendas">103</span></div>
-          <div class="perf-row"><span>Conversión</span><span id="pf-thomi-conv">141.1%</span></div>
-          <button class="perf-view-btn" data-setter="thomi">👤 Ver perfil</button>
-        </div>
-        <div class="perf-card" data-setter="flor" style="border-color:var(--c-flor);--glow-color:var(--c-flor);">
-          <h4><span class="cdot" style="background:var(--c-flor)"></span>Flor</h4>
-          <div class="perf-row"><span>Seguimientos</span><span id="pf-flor-seg">46</span></div>
-          <div class="perf-row"><span>Cash</span><span id="pf-flor-cash">$193</span></div>
-          <div class="perf-row"><span>Horas</span><span id="pf-flor-horas">90.0h</span></div>
-          <div class="perf-row"><span>Agendas</span><span id="pf-flor-agendas">121</span></div>
-          <div class="perf-row"><span>Conversión</span><span id="pf-flor-conv">263.0%</span></div>
-          <button class="perf-view-btn" data-setter="flor">👤 Ver perfil</button>
-        </div>
-        <div class="perf-card" data-setter="valeria" style="border-color:var(--c-valeria);--glow-color:var(--c-valeria);">
-          <h4><span class="cdot" style="background:var(--c-valeria)"></span>Valeria</h4>
-          <div class="perf-row"><span>Seguimientos</span><span id="pf-valeria-seg">32</span></div>
-          <div class="perf-row"><span>Cash</span><span id="pf-valeria-cash">$0</span></div>
-          <div class="perf-row"><span>Horas</span><span id="pf-valeria-horas">91.0h</span></div>
-          <div class="perf-row"><span>Agendas</span><span id="pf-valeria-agendas">34</span></div>
-          <div class="perf-row"><span>Conversión</span><span id="pf-valeria-conv">106.3%</span></div>
-          <button class="perf-view-btn" data-setter="valeria">👤 Ver perfil</button>
-        </div>
-        <div class="perf-card" data-setter="franco" style="border-color:var(--c-franco);--glow-color:var(--c-franco);">
-          <h4><span class="cdot" style="background:var(--c-franco)"></span>Franco</h4>
-          <div class="perf-row"><span>Seguimientos</span><span id="pf-franco-seg">62</span></div>
-          <div class="perf-row"><span>Cash</span><span id="pf-franco-cash">$0</span></div>
-          <div class="perf-row"><span>Horas</span><span id="pf-franco-horas">70.0h</span></div>
-          <div class="perf-row"><span>Agendas</span><span id="pf-franco-agendas">17</span></div>
-          <div class="perf-row"><span>Conversión</span><span id="pf-franco-conv">27.4%</span></div>
-          <button class="perf-view-btn" data-setter="franco">👤 Ver perfil</button>
-        </div>
+      <div class="perf-grid" id="perf-grid">
+        <!-- Tarjetas por setter generadas en JS desde SETTERS (ver "renderSettersDom") — los valores de acá se pisan solos apenas carga updatePerformanceCards(). -->
       </div>
 
       <div class="section-label" id="vpInlineLabel" style="display:none;">👤 Perfil</div>
@@ -2199,62 +2160,8 @@
           <span id="guardarStatus" style="font-size:12.5px;color:var(--text-dim);font-weight:600;"></span>
         </div>
 
-        <div class="metric-cards">
-          <div class="metric-card" id="card-thomi" style="--row-color:var(--c-thomi)">
-            <div class="mc-setter">
-              <label class="toggle-switch"><input type="checkbox" id="sel-thomi"><span class="toggle-slider"></span></label>
-              <span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-thomi);display:inline-block"></span>
-              <span class="mc-name">Thomi</span>
-            </div>
-            <div class="mc-field"><label>Seguim.</label><input class="mini-input" id="m-thomi-seg" type="number" value="0"></div>
-            <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-thomi-cash" type="number" value="0"></div>
-            <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-thomi-horas" type="number" step="0.1" value="0"></div>
-            <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-thomi-agendas" type="number" value="0"></div>
-            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-thomi-leads" type="number" value="0"></div>
-            <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
-          </div>
-
-          <div class="metric-card" id="card-flor" style="--row-color:var(--c-flor)">
-            <div class="mc-setter">
-              <label class="toggle-switch"><input type="checkbox" id="sel-flor"><span class="toggle-slider"></span></label>
-              <span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-flor);display:inline-block"></span>
-              <span class="mc-name">Flor</span>
-            </div>
-            <div class="mc-field"><label>Seguim.</label><input class="mini-input" id="m-flor-seg" type="number" value="0"></div>
-            <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-flor-cash" type="number" value="0"></div>
-            <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-flor-horas" type="number" step="0.1" value="0"></div>
-            <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-flor-agendas" type="number" value="0"></div>
-            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-flor-leads" type="number" value="0"></div>
-            <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
-          </div>
-
-          <div class="metric-card" id="card-valeria" style="--row-color:var(--c-valeria)">
-            <div class="mc-setter">
-              <label class="toggle-switch"><input type="checkbox" id="sel-valeria"><span class="toggle-slider"></span></label>
-              <span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-valeria);display:inline-block"></span>
-              <span class="mc-name">Valeria</span>
-            </div>
-            <div class="mc-field"><label>Seguim.</label><input class="mini-input" id="m-valeria-seg" type="number" value="0"></div>
-            <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-valeria-cash" type="number" value="0"></div>
-            <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-valeria-horas" type="number" step="0.1" value="0"></div>
-            <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-valeria-agendas" type="number" value="0"></div>
-            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-valeria-leads" type="number" value="0"></div>
-            <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
-          </div>
-
-          <div class="metric-card" id="card-franco" style="--row-color:var(--c-franco)">
-            <div class="mc-setter">
-              <label class="toggle-switch"><input type="checkbox" id="sel-franco"><span class="toggle-slider"></span></label>
-              <span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-franco);display:inline-block"></span>
-              <span class="mc-name">Franco</span>
-            </div>
-            <div class="mc-field"><label>Seguim.</label><input class="mini-input" id="m-franco-seg" type="number" value="0"></div>
-            <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-franco-cash" type="number" value="0"></div>
-            <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-franco-horas" type="number" step="0.1" value="0"></div>
-            <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-franco-agendas" type="number" value="0"></div>
-            <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-franco-leads" type="number" value="0"></div>
-            <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
-          </div>
+        <div class="metric-cards" id="metric-cards">
+          <!-- Tarjetas de carga manual generadas en JS desde SETTERS (ver "renderSettersDom"). -->
         </div>
 
         <div style="font-size:12px;color:var(--text-dim2);margin-top:14px;">✓ Activá el switch del/los setter(s) que querés guardar. Los que dejes apagados no se tocan en el Sheet.</div>
@@ -2357,7 +2264,70 @@
   <div class="record-toast" id="recordToast"></div>
 
 <script>
-  const SETTER_KEYS = ['thomi','flor','valeria','franco'];
+  // Única fuente de verdad para agregar/sacar gente del equipo en este
+  // dashboard — para dar de alta o baja a alguien, se edita ESTE array
+  // nada más. El "id" tiene que coincidir con la clave que usa el Sheet
+  // (SHEET_NAMES en constants.js / apps_script_setterflow_1.gs), porque
+  // así se cruzan los datos que llegan del sync.
+  const SETTERS = [
+    { id: 'thomi',   nombre: 'Thomi',   color: '#5b9bf0' },
+    { id: 'flor',    nombre: 'Flor',    color: '#f0568f' },
+    { id: 'valeria', nombre: 'Valeria', color: '#a978f0' },
+    { id: 'franco',  nombre: 'Franco',  color: '#f0745b' }
+  ];
+  const SETTER_KEYS = SETTERS.map(s => s.id); // se deja el nombre igual — el resto del script ya lo usa así
+
+  // Arma los chips de filtro, las tarjetas de "Performance individual" y
+  // las tarjetas de carga manual a partir de SETTERS — antes estaban
+  // escritas 4 veces a mano en el HTML, una por setter. Tiene que correr
+  // ACÁ (antes que cualquier otro código del script) porque más abajo hay
+  // wiring que hace document.getElementById('sel-'+k) esperando que estos
+  // elementos ya existan.
+  function renderSettersDom(){
+    const chipRow = document.getElementById('chip-row');
+    if(chipRow){
+      chipRow.innerHTML = SETTERS.map(s => `
+        <div class="setter-chip" style="border-color:${s.color};color:${s.color}" data-setter="${s.id}"><span class="cdot" style="background:${s.color}"></span>${s.nombre.toUpperCase()}</div>
+      `).join('') + `
+        <div class="setter-chip active-chip" style="border-color:var(--green);color:var(--green)" data-setter="todos"><span class="cdot" style="background:var(--green)"></span>TODOS</div>
+      `;
+    }
+
+    const perfGrid = document.getElementById('perf-grid');
+    if(perfGrid){
+      perfGrid.innerHTML = SETTERS.map(s => `
+        <div class="perf-card" data-setter="${s.id}" style="border-color:${s.color};--glow-color:${s.color};">
+          <h4><span class="cdot" style="background:${s.color}"></span>${s.nombre}</h4>
+          <div class="perf-row"><span>Seguimientos</span><span id="pf-${s.id}-seg">—</span></div>
+          <div class="perf-row"><span>Cash</span><span id="pf-${s.id}-cash">—</span></div>
+          <div class="perf-row"><span>Horas</span><span id="pf-${s.id}-horas">—</span></div>
+          <div class="perf-row"><span>Agendas</span><span id="pf-${s.id}-agendas">—</span></div>
+          <div class="perf-row"><span>Conversión</span><span id="pf-${s.id}-conv">—</span></div>
+          <button class="perf-view-btn" data-setter="${s.id}">👤 Ver perfil</button>
+        </div>
+      `).join('');
+    }
+
+    const metricCards = document.getElementById('metric-cards');
+    if(metricCards){
+      metricCards.innerHTML = SETTERS.map(s => `
+        <div class="metric-card" id="card-${s.id}" style="--row-color:${s.color}">
+          <div class="mc-setter">
+            <label class="toggle-switch"><input type="checkbox" id="sel-${s.id}"><span class="toggle-slider"></span></label>
+            <span class="cdot" style="width:9px;height:9px;border-radius:50%;background:${s.color};display:inline-block"></span>
+            <span class="mc-name">${s.nombre}</span>
+          </div>
+          <div class="mc-field"><label>Seguim.</label><input class="mini-input" id="m-${s.id}-seg" type="number" value="0"></div>
+          <div class="mc-field"><label>Cash ($)</label><input class="mini-input" id="m-${s.id}-cash" type="number" value="0"></div>
+          <div class="mc-field"><label>Horas</label><input class="mini-input" id="m-${s.id}-horas" type="number" step="0.1" value="0"></div>
+          <div class="mc-field"><label>Agendas</label><input class="mini-input" id="m-${s.id}-agendas" type="number" value="0"></div>
+          <div class="mc-field"><label>Leads</label><input class="mini-input" id="m-${s.id}-leads" type="number" value="0"></div>
+          <div class="mc-conv"><div class="mc-conv-label">Conv.</div><div class="mc-conv-value">—</div></div>
+        </div>
+      `).join('');
+    }
+  }
+  renderSettersDom();
 
   // Movidas acá arriba de todo (mismo motivo que setterSeries más abajo): si algo
   // corre temprano (restaurar sesión, un click programático, etc.) y necesita
@@ -2419,7 +2389,7 @@
   let setterSeries = {};   // { thomi: {dates:[], seguimientos:[], cash:[], horas:[], agendas:[]}, ... }
   let dashboardTotals = {}; // { agendas: {thomi,flor,valeria,franco}, cash:{...}, seguimientos:{...} }
   let recuentoAyer = {};    // { thomi: {seguimientos,cash,horas,agendas,conversion}, ..., fecha: "01/07/2026" }
-  let cashHistoricoPorSetter = { thomi: 0, flor: 0, valeria: 0, franco: 0 }; // suma TOTAL de todos los meses (fila "TOTALES/PROMEDIOS"), para "Matemática del éxito"
+  let cashHistoricoPorSetter = Object.fromEntries(SETTER_KEYS.map(k => [k, 0])); // suma TOTAL de todos los meses (fila "TOTALES/PROMEDIOS"), para "Matemática del éxito"
 
   // ===== MODO CLARO / OSCURO =====
   const themeToggle = document.getElementById('themeToggle');
@@ -4211,7 +4181,7 @@
   // mixto + cantidad de ventas), lo escribe el mismo backend de Hyros.
   const VENTAS_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRBUfi6wugUlrzAaQUEVYlLoSFQxeNYPVNQzMdQy8x7q070TFKiXCPhx3iJTz3IMNVvI1sCCXZIKOs/pub?gid=1515662805&single=true&output=csv";
 
-  const colors = { thomi: '#5b9bf0', flor: '#f0568f', valeria: '#a978f0', franco: '#f0745b', todos: '#34d399' };
+  const colors = Object.assign(Object.fromEntries(SETTERS.map(s => [s.id, s.color])), { todos: '#34d399' });
   // ACTIVE_MONTH_MM, ACTIVE_MONTH_YYYY y MONTH_NAME_TO_MM se movieron arriba de todo
   // (junto a SETTER_KEYS) para evitar el mismo bug de "usada antes de declararse".
 
@@ -4442,15 +4412,34 @@
     }
     return arr;
   }
+  // Perfiles a mano solo para que la demo (antes de que carguen datos
+  // reales) se vea variada — si se agrega un setter nuevo que no está acá,
+  // usa "defecto" en vez de romper. Los 4 de siempre quedan IDÉNTICOS a
+  // como estaban.
+  const DEMO_PERFILES = {
+    thomi:   { seg:[2,8,2],  cash:[0,150,10], horas:[4,1,1], agendas:[3,20,3], leads:[5,30,5], cashHistorico: 32620 },
+    flor:    { seg:[2,6,2],  cash:[0,400,20], horas:[3,1,1], agendas:[6,45,6], leads:[8,60,8], cashHistorico: 30813 },
+    valeria: { seg:[1,5,2],  cash:[0,0,0],    horas:[3,1,1], agendas:[3,10,3], leads:[4,20,4], cashHistorico: 1803 },
+    franco:  { seg:[2,7,2],  cash:[0,10,3],   horas:[2,1,1], agendas:[4,15,4], leads:[5,25,5], cashHistorico: 214 }
+  };
+  const DEMO_DEFECTO = { seg:[2,6,2], cash:[0,50,5], horas:[3,1,1], agendas:[4,15,4], leads:[5,20,5], cashHistorico: 0 };
+
   function buildDemoData(){
     const dates = Array.from({length:30}, (_,i) => String(i+1));
-    setterSeries = {
-      thomi:   { dates, seguimientos: demoSeries(2,8,2),  cash: demoSeries(0,150,10), horas: demoSeries(4,1,1), agendas: demoSeries(3,20,3), leads: demoSeries(5,30,5) },
-      flor:    { dates, seguimientos: demoSeries(2,6,2),  cash: demoSeries(0,400,20), horas: demoSeries(3,1,1), agendas: demoSeries(6,45,6), leads: demoSeries(8,60,8) },
-      valeria: { dates, seguimientos: demoSeries(1,5,2),  cash: demoSeries(0,0,0),    horas: demoSeries(3,1,1), agendas: demoSeries(3,10,3), leads: demoSeries(4,20,4) },
-      franco:  { dates, seguimientos: demoSeries(2,7,2),  cash: demoSeries(0,10,3),   horas: demoSeries(2,1,1), agendas: demoSeries(4,15,4), leads: demoSeries(5,25,5) }
-    };
-    cashHistoricoPorSetter = { thomi: 32620, flor: 30813, valeria: 1803, franco: 214 };
+    setterSeries = {};
+    cashHistoricoPorSetter = {};
+    SETTER_KEYS.forEach(k => {
+      const p = DEMO_PERFILES[k] || DEMO_DEFECTO;
+      setterSeries[k] = {
+        dates,
+        seguimientos: demoSeries(...p.seg),
+        cash: demoSeries(...p.cash),
+        horas: demoSeries(...p.horas),
+        agendas: demoSeries(...p.agendas),
+        leads: demoSeries(...p.leads)
+      };
+      cashHistoricoPorSetter[k] = p.cashHistorico;
+    });
   }
 
   const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos
@@ -6031,7 +6020,7 @@
     }
   }
 
-  const activeSeries = new Set(['thomi','flor','valeria','franco','todos']);
+  const activeSeries = new Set([...SETTER_KEYS, 'todos']);
   let currentMetric = 'agendas';
 
   document.querySelectorAll('.metric-toggle .rt-btn').forEach(btn => {
