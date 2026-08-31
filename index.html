@@ -4901,10 +4901,10 @@
     const el = document.getElementById(containerId);
     const html = sorted.map((k,i) => `
       <div class="rank-row ${i===0?'gold-row':''}">
-        <div class="rank-pos ${i===0?'gold':''}">${posLabels[i]}</div>
-        <div class="rank-dot" style="background:var(--c-${k})"></div>
+        <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
+        <div class="rank-dot" style="background:${colors[k]}"></div>
         <div class="rank-name">${getDisplayName(k)}</div>
-        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:var(--c-${k})"></div></div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:${colors[k]}"></div></div>
         <div class="rank-val">${fmt(totals[k][metric])}</div>
       </div>
     `).join('');
@@ -5630,8 +5630,8 @@
 
     const metaMensualPorSetter = META_FACTURACION / SETTER_KEYS.length;
     document.getElementById('me-setters-grid').innerHTML = SETTER_KEYS.map(k => `
-      <div class="perf-card" data-setter="${k}" style="border-color:var(--c-${k});--glow-color:var(--c-${k});">
-        <h4><span class="cdot" style="background:var(--c-${k})"></span>${getDisplayName(k)}</h4>
+      <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
+        <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
         <div class="perf-row"><span>Meta mensual</span><span>${fmtMoney(metaMensualPorSetter)}</span></div>
       </div>
