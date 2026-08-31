@@ -1757,7 +1757,7 @@
             <div class="tl">Ritmo actual</div>
             <div class="tv" id="me-fecha-actual">-</div>
           </div>
-          <div class="mate-exito-proy-card" style="--proy-color:#f0568f;">
+          <div class="mate-exito-proy-card" style="--proy-color:#ef4444;">
             <div class="tl">Pesimista (-15%)</div>
             <div class="tv" id="me-fecha-pesimista">-</div>
           </div>
@@ -2274,7 +2274,7 @@
     { id: 'flor',    nombre: 'Flor',    color: '#f0568f' },
     { id: 'valeria', nombre: 'Valeria', color: '#a978f0' },
     { id: 'franco',  nombre: 'Franco',  color: '#f0745b' },
-    { id: 'paula',   nombre: 'Paula',   color: '#f7b6d1' } // rosa pastel, distinto del rosa fuerte de Flor
+    { id: 'paula',   nombre: 'Pau',     color: '#f28fb8' } // rosa pastel bien marcado (no confundir con blanco), distinto del rosa fuerte de Flor
   ];
   const SETTER_KEYS = SETTERS.map(s => s.id); // se deja el nombre igual — el resto del script ya lo usa así
 
@@ -5761,7 +5761,7 @@
     const escenarios = [
       { ritmo: p.ritmoOptimista, color: '#34d399' },
       { ritmo: p.ritmoActual, color: '#7c6cf0' },
-      { ritmo: p.ritmoPesimista, color: '#f0568f' }
+      { ritmo: p.ritmoPesimista, color: '#ef4444' }
     ];
     escenarios.forEach(esc => {
       const x1 = xAt(p.diasTranscurridos), y1 = yAt(ultimoReal);
@@ -5909,7 +5909,7 @@
             <div class="tt-day"><span class="cdot"></span>Día ${d} <span style="font-weight:400;color:var(--text-dim);">(proyección)</span></div>
             <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#34d399"></span>Optimista</span><span class="tt-val" style="color:#34d399">${fmtMoney(projOptimista)}</span></div>
             <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#7c6cf0"></span>Ritmo actual</span><span class="tt-val" style="color:#7c6cf0">${fmtMoney(projActual)}</span></div>
-            <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#f0568f"></span>Pesimista</span><span class="tt-val" style="color:#f0568f">${fmtMoney(projPesimista)}</span></div>
+            <div class="tt-row"><span class="tt-name"><span class="cdot" style="background:#ef4444"></span>Pesimista</span><span class="tt-val" style="color:#ef4444">${fmtMoney(projPesimista)}</span></div>
           `;
           const x = xAt(d);
           const wrapWidth = svg.parentElement.clientWidth;
