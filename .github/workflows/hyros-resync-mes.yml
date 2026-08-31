@@ -5,6 +5,13 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch: {}
 
+# Mismo grupo que hyros-resync.yml — ver el comentario ahí. Se encolan en
+# vez de correr en paralelo, así nunca compiten por la misma cuota de
+# lecturas/min de la cuenta de servicio de Sheets.
+concurrency:
+  group: hyros-sync
+  cancel-in-progress: false
+
 jobs:
   resync-mes:
     runs-on: ubuntu-latest

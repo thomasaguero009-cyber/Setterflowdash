@@ -5,6 +5,16 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
+# Mismo grupo que hyros-resync-mes.yml a propósito: los dos comparten la
+# MISMA cuenta de servicio (y su misma cuota de lecturas/min de Sheets
+# API) — sin esto, si cron-job.org dispara los dos casi al mismo tiempo (o
+# una corrida tarda más de la cuenta por estar reintentando), terminaban
+# compitiendo por la cuota y fallando en cadena. cancel-in-progress:false
+# hace que se ENCOLEN en vez de pisarse — nunca corren dos al mismo tiempo.
+concurrency:
+  group: hyros-sync
+  cancel-in-progress: false
+
 jobs:
   resync:
     runs-on: ubuntu-latest
