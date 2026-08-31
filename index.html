@@ -2345,7 +2345,9 @@
   // puede ser distinto si esa persona lo cambió en Mi Perfil.
   let displayNameOverrides = {};
   function getDisplayName(key){
-    return displayNameOverrides[key] || (key.charAt(0).toUpperCase()+key.slice(1));
+    if(displayNameOverrides[key]) return displayNameOverrides[key];
+    const s = SETTERS.find(x => x.id === key);
+    return (s && s.nombre) || (key.charAt(0).toUpperCase()+key.slice(1));
   }
   function updateDisplayNameOverrides(rows){
     if(!rows) return;
