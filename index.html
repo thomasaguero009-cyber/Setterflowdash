@@ -2273,7 +2273,8 @@
     { id: 'thomi',   nombre: 'Thomi',   color: '#5b9bf0' },
     { id: 'flor',    nombre: 'Flor',    color: '#f0568f' },
     { id: 'valeria', nombre: 'Valeria', color: '#a978f0' },
-    { id: 'franco',  nombre: 'Franco',  color: '#f0745b' }
+    { id: 'franco',  nombre: 'Franco',  color: '#f0745b' },
+    { id: 'paula',   nombre: 'Paula',   color: '#f7b6d1' } // rosa pastel, distinto del rosa fuerte de Flor
   ];
   const SETTER_KEYS = SETTERS.map(s => s.id); // se deja el nombre igual — el resto del script ya lo usa así
 
@@ -4459,22 +4460,46 @@
     return text;
   }
 
+  // Serie en cero (mismas fechas reales que el resto, todo en 0) — para un
+  // setter recién agregado que todavía no tiene su pestaña publicada como
+  // CSV. A propósito NO es la demo random: alguien que recién arranca se
+  // tiene que VER como "sin actividad todavía", no como si ya tuviera
+  // números inventados.
+  function buildZeroSeries(dates){
+    const zeros = () => new Array(dates.length).fill(0);
+    return { dates: dates.slice(), seguimientos: zeros(), cash: zeros(), horas: zeros(), agendas: zeros(), leads: zeros() };
+  }
+
   async function loadLiveData(){
     let setterOk = false, dashOk = false, recuentoOk = false;
 
     try{
       const texts = await Promise.all(SETTER_SHEET_URLS.map(safeFetchText));
       const parsedList = texts.map(parseSetterSheet).filter(Boolean);
-      if(parsedList.length === 4){
-        const bySetter = {};
-        parsedList.forEach(p => { bySetter[p.key] = p.series; cashHistoricoPorSetter[p.key] = p.cashHistorico || 0; });
-        if(SETTER_KEYS.every(k => bySetter[k])){
-          setterSeries = trimTrailingEmptyDays(bySetter);
-          setterOk = true;
-        }
+      const bySetter = {};
+      parsedList.forEach(p => { bySetter[p.key] = p.series; cashHistoricoPorSetter[p.key] = p.cashHistorico || 0; });
+      setterOk = Object.keys(bySetter).length > 0;
+      if(setterOk){
+        // Al menos un setter trajo datos reales — a los que todavía no
+        // (ej. alguien recién sumado al equipo, sin pestaña publicada aún)
+        // se los rellena con CEROS reales usando las mismas fechas que ya
+        // trajeron los demás, no con la demo. Antes esto exigía los 4 (un
+        // número fijo) completos o nada — agregar una persona nueva sin
+        // haber terminado de publicar su pestaña rompía a TODOS los demás.
+        const fechasReferencia = Object.values(bySetter)[0].dates;
+        SETTER_KEYS.forEach(k => {
+          setterSeries[k] = bySetter[k] || buildZeroSeries(fechasReferencia);
+          if(!bySetter[k]) cashHistoricoPorSetter[k] = 0;
+        });
+        trimTrailingEmptyDays(setterSeries);
       }
     } catch(err){ /* keep demo */ }
 
+    // Si NINGÚN setter trajo datos reales (falló todo el fetch, o
+    // ninguna URL configurada todavía) recién ahí se usa la demo random
+    // completa — pensada para poder abrir este archivo sin conexión al
+    // Sheet real y ver igual un preview con onda, no para el caso normal
+    // de "falta uno".
     if(!setterOk) buildDemoData();
 
     try{
