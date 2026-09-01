@@ -743,7 +743,7 @@ const HYROS_BASE_URL = "https://api.hyros.com/v1/api/v1.0/";
 // API (se quedaría afuera de cualquier campaña nueva que no esté en una
 // lista fija) — se trae TODO lo del día y se clasifica acá mirando si
 // algún tag CONTIENE el código del setter.
-const HYROS_SETTER_CODES = { thomi: 'st01', flor: 'st05', valeria: 'st07', franco: 'st06' };
+const HYROS_SETTER_CODES = { thomi: 'st01', flor: 'st05', valeria: 'st07', franco: 'st06', paula: 'st02' };
 
 // Glosario de cuentas/canales de origen (para el panel "Por fuente" del
 // dashboard — de qué cuenta/canal vienen los leads/agendas/ventas, no de
