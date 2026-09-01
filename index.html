@@ -2478,6 +2478,11 @@
     sidebarMonthLabel.textContent = selectedMonthLabel + ' 2026';
     ACTIVE_MONTH_MM = MONTH_NAME_TO_MM[selectedMonthLabel] || '06';
     ACTIVE_MONTH_YYYY = '2026';
+    // Fuentes y Ventas arrancan con rango "Este mes" apuntando al mes que
+    // estaba activo cuando cargó la página (el default) — hay que
+    // recalcularlo ahora que ya se sabe el mes real que se eligió acá.
+    inicializarFechasFuente();
+    inicializarFechasVentas();
     window.scrollTo({top:0});
 
     loadingBrand.classList.remove('corner');
@@ -5087,9 +5092,11 @@
 
   function actualizarLabelCalendario(){
     const label = document.getElementById('fuenteCalLabel');
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    if(fuenteMismoDia(fuenteRango.desde, primerDiaMes) && fuenteMismoDia(fuenteRango.hasta, hoy)){
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    if(fuenteMismoDia(fuenteRango.desde, primerDiaMes) && fuenteMismoDia(fuenteRango.hasta, ultimoDiaMes)){
       label.textContent = 'Este mes';
     } else if(fuenteMismoDia(fuenteRango.desde, fuenteRango.hasta)){
       label.textContent = fuenteDDMMYYYY(fuenteRango.desde);
@@ -5099,10 +5106,16 @@
   }
 
   function inicializarFechasFuente(){
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    fuenteRango = { desde: primerDiaMes, hasta: hoy };
-    fuenteCalMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    // "Este mes" tiene que ser el mes ACTIVO del dashboard (el elegido en
+    // "Cambiar mes"), no el mes real de hoy — si no, esto queda mostrando
+    // siempre el mes calendario actual sin importar qué mes se haya
+    // seleccionado arriba.
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    fuenteRango = { desde: primerDiaMes, hasta: ultimoDiaMes };
+    fuenteCalMes = new Date(yyyy, mm, 1);
     actualizarLabelCalendario();
   }
 
@@ -5218,9 +5231,11 @@
 
   function actualizarVentasLabelCalendario(){
     const label = document.getElementById('ventasCalLabel');
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    if(fuenteMismoDia(ventasRango.desde, primerDiaMes) && fuenteMismoDia(ventasRango.hasta, hoy)){
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    if(fuenteMismoDia(ventasRango.desde, primerDiaMes) && fuenteMismoDia(ventasRango.hasta, ultimoDiaMes)){
       label.textContent = 'Este mes';
     } else if(fuenteMismoDia(ventasRango.desde, ventasRango.hasta)){
       label.textContent = fuenteDDMMYYYY(ventasRango.desde);
@@ -5230,10 +5245,14 @@
   }
 
   function inicializarFechasVentas(){
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    ventasRango = { desde: primerDiaMes, hasta: hoy };
-    ventasCalMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    // Mismo criterio que inicializarFechasFuente: "Este mes" es el mes
+    // ACTIVO del dashboard, no el mes calendario real de hoy.
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    ventasRango = { desde: primerDiaMes, hasta: ultimoDiaMes };
+    ventasCalMes = new Date(yyyy, mm, 1);
     actualizarVentasLabelCalendario();
   }
 
