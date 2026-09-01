@@ -3995,19 +3995,37 @@
     return text;
   }
 
+  // Serie en cero (mismas fechas reales que el resto, todo en 0) — para un
+  // setter que ese mes no trajo filas (recién arranca el mes, pestaña sin
+  // publicar, etc). A propósito NO es la demo random: alguien sin
+  // actividad todavía se tiene que VER en cero, no con números inventados.
+  function buildZeroSeries(dates){
+    const zeros = () => new Array(dates.length).fill(0);
+    return { dates: dates.slice(), seguimientos: zeros(), cash: zeros(), horas: zeros(), agendas: zeros() };
+  }
+
   async function loadLiveData(){
     let setterOk = false, dashOk = false, recuentoOk = false;
 
     try{
       const texts = await Promise.all(SETTER_SHEET_URLS.map(safeFetchText));
       const parsedList = texts.map(parseSetterSheet).filter(Boolean);
-      if(parsedList.length === 4){
-        const bySetter = {};
-        parsedList.forEach(p => { bySetter[p.key] = p.series; });
-        if(SETTER_KEYS.every(k => bySetter[k])){
-          setterSeries = trimTrailingEmptyDays(bySetter);
-          setterOk = true;
-        }
+      const bySetter = {};
+      parsedList.forEach(p => { bySetter[p.key] = p.series; });
+      setterOk = Object.keys(bySetter).length > 0;
+      if(setterOk){
+        // Antes esto exigía los 4 setters completos (parsedList.length === 4)
+        // o nada — si UNO solo no traía filas para el mes activo (mes que
+        // recién arranca, pestaña sin filas todavía), se descartaban los
+        // datos reales de TODOS y se mostraba la demo random para todos.
+        // Ahora, al que le falta, se lo rellena con CEROS reales usando las
+        // mismas fechas que ya trajeron los demás.
+        const fechasReferencia = Object.values(bySetter)[0].dates;
+        setterSeries = {};
+        SETTER_KEYS.forEach(k => {
+          setterSeries[k] = bySetter[k] || buildZeroSeries(fechasReferencia);
+        });
+        setterSeries = trimTrailingEmptyDays(setterSeries);
       }
     } catch(err){ /* keep demo */ }
 
