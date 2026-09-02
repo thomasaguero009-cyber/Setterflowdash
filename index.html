@@ -494,6 +494,9 @@
   @media (max-width: 720px){ .estrellas-grid{ grid-template-columns: 1fr; } }
   .estrellas-col h4{ margin:0 0 12px; font-size:13.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.4px; }
   .estrellas-total{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:6px; }
+  .estrellas-mini-row{ font-size:12px; line-height:1.7; color:var(--text-dim); }
+  .estrellas-mini-row b{ color:var(--text); font-weight:700; }
+  .estrellas-mini-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--text-dim); margin:8px 0 2px; }
 
   /* RANKING */
   .rank-toggle{ display:flex; gap:8px; margin-bottom:18px; }
@@ -1772,21 +1775,26 @@
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
+      </div>
 
-        <div class="section-label" style="margin-top:24px;">⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</div>
+      <div class="section-label">⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</div>
+      <div class="chart-panel">
         <div class="estrellas-grid">
           <div class="estrellas-col">
-            <h4>Agendas por estrellas</h4>
+            <h4>Agendas por estrellas — todo el equipo</h4>
             <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
             <div class="estrellas-total" id="estrellasAgendasTotal"></div>
           </div>
           <div class="estrellas-col">
-            <h4>Ventas por estrellas</h4>
+            <h4>Ventas por estrellas — todo el equipo</h4>
             <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
             <div class="estrellas-total" id="estrellasVentasTotal"></div>
           </div>
         </div>
-        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Total del mes activo, todo el equipo junto.</div>
+        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). Total del mes activo.</div>
+
+        <div class="section-label" style="margin-top:24px;">Por setter</div>
+        <div class="perf-grid" id="estrellas-setters-grid"></div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -5667,20 +5675,22 @@
 
   // ===== Calidad de Agendas y Ventas por estrellas (1-5, clasificación de
   // HighLevel/Hyros) — suma de TODO el equipo en el mes activo. =====
-  function renderEstrellasCharts(){
-    function totalesPorEstrella(prefijo){
-      const totales = [0,0,0,0,0];
-      SETTER_KEYS.forEach(k => {
-        const s = setterSeries[k] || {};
-        for(let n=1; n<=5; n++){
-          totales[n-1] += (s[prefijo+n] || []).reduce((a,b) => a+b, 0);
-        }
-      });
-      return totales;
+  function estrellasDeSetter(k, prefijo){
+    const s = setterSeries[k] || {};
+    const totales = [0,0,0,0,0];
+    for(let n=1; n<=5; n++){
+      totales[n-1] = (s[prefijo+n] || []).reduce((a,b) => a+b, 0);
     }
+    return totales;
+  }
 
-    const agendasPorEstrella = totalesPorEstrella('agendas');
-    const ventasPorEstrella = totalesPorEstrella('ventas');
+  function sumarArrays(...arrs){
+    return arrs.reduce((acc, arr) => acc.map((v,i) => v + arr[i]), [0,0,0,0,0]);
+  }
+
+  function renderEstrellasCharts(){
+    const agendasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'agendas')));
+    const ventasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'ventas')));
 
     drawEstrellasBarChart('estrellasAgendasChart', agendasPorEstrella, '#5b9bf0');
     drawEstrellasBarChart('estrellasVentasChart', ventasPorEstrella, '#34d399');
@@ -5693,6 +5703,24 @@
     document.getElementById('estrellasVentasTotal').textContent = totalVentas
       ? `${fmtInt(totalVentas)} ventas clasificadas este mes`
       : 'Todavía no hay ventas clasificadas por estrellas este mes.';
+
+    const filaEstrellas = (valores) => [1,2,3,4,5].map(n => `${n}★ <b>${fmtInt(valores[n-1])}</b>`).join(' &nbsp;·&nbsp; ');
+    const grid = document.getElementById('estrellas-setters-grid');
+    if(grid){
+      grid.innerHTML = SETTER_KEYS.map(k => {
+        const ag = estrellasDeSetter(k, 'agendas');
+        const ve = estrellasDeSetter(k, 'ventas');
+        return `
+          <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
+            <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
+            <div class="estrellas-mini-label">Agendas</div>
+            <div class="estrellas-mini-row">${filaEstrellas(ag)}</div>
+            <div class="estrellas-mini-label">Ventas</div>
+            <div class="estrellas-mini-row">${filaEstrellas(ve)}</div>
+          </div>
+        `;
+      }).join('');
+    }
   }
 
   function drawEstrellasBarChart(svgId, valores, color){
