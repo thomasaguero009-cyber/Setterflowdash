@@ -1789,10 +1789,7 @@
             <div class="estrellas-total" id="estrellasVentasTotal"></div>
           </div>
         </div>
-        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). Total del mes activo.</div>
-
-        <div class="section-label" style="margin-top:24px;">Por setter</div>
-        <div class="perf-grid" id="estrellas-setters-grid"></div>
+        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). Total del mes activo. El desglose por persona está en "Ver perfil" de cada setter.</div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -1863,6 +1860,20 @@
                   <div class="tl">Ticket promedio</div>
                   <div class="tv" id="vp-ventas-ticket-value" style="font-size:26px;">—</div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:24px;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">⭐ Calidad de Agendas y Ventas <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
+            <div class="estrellas-grid">
+              <div class="estrellas-col">
+                <h4>Agendas por estrellas</h4>
+                <svg class="chart" viewBox="0 0 480 180" id="vpEstrellasAgendasChart"></svg>
+              </div>
+              <div class="estrellas-col">
+                <h4>Ventas por estrellas</h4>
+                <svg class="chart" viewBox="0 0 480 180" id="vpEstrellasVentasChart"></svg>
               </div>
             </div>
           </div>
@@ -3434,6 +3445,8 @@
     drawVpChart(setterKey);
 
     drawVpVentasPanel(setterKey);
+    drawEstrellasBarChart('vpEstrellasAgendasChart', estrellasDeSetter(setterKey, 'agendas'), colors[setterKey], { H: 180, padT: 24, padB: 30 });
+    drawEstrellasBarChart('vpEstrellasVentasChart', estrellasDeSetter(setterKey, 'ventas'), colors[setterKey], { H: 180, padT: 24, padB: 30 });
 
     vpFuenteMetricActual = 'agendas';
     document.querySelectorAll('#vpFuenteToggle .rt-btn').forEach(b => b.classList.remove('active'));
@@ -5701,23 +5714,9 @@
     document.getElementById('estrellasVentasTotal').textContent = totalVentas
       ? `${fmtInt(totalVentas)} ventas clasificadas este mes`
       : 'Todavía no hay ventas clasificadas por estrellas este mes.';
-
-    const grid = document.getElementById('estrellas-setters-grid');
-    if(grid){
-      grid.innerHTML = SETTER_KEYS.map(k => `
-        <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
-          <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
-          <div class="estrellas-mini-label">Agendas</div>
-          <svg class="chart" viewBox="0 0 480 160" id="estrellas-agendas-${k}"></svg>
-          <div class="estrellas-mini-label">Ventas</div>
-          <svg class="chart" viewBox="0 0 480 160" id="estrellas-ventas-${k}"></svg>
-        </div>
-      `).join('');
-      SETTER_KEYS.forEach(k => {
-        drawEstrellasBarChart(`estrellas-agendas-${k}`, estrellasDeSetter(k, 'agendas'), colors[k], { H: 160, padT: 20, padB: 26 });
-        drawEstrellasBarChart(`estrellas-ventas-${k}`, estrellasDeSetter(k, 'ventas'), colors[k], { H: 160, padT: 20, padB: 26 });
-      });
-    }
+    // El desglose INDIVIDUAL por setter se dibuja en el modal "Ver perfil"
+    // (ver openPerfilModal → vpEstrellasAgendasChart/vpEstrellasVentasChart),
+    // no acá en Inicio — acá solo va el total del equipo.
   }
 
   function drawEstrellasBarChart(svgId, valores, color, opts){
