@@ -547,7 +547,10 @@
   .rank-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .rank-name{ flex:1; font-weight:700; font-size:14px; }
   .rank-bar-wrap{ flex:2; height:7px; background:#1c1c28; border-radius:999px; overflow:hidden; margin: 0 10px; }
-  .rank-bar{ height:100%; border-radius:999px; }
+  .rank-bar{ height:100%; border-radius:999px; transition: width 0.9s cubic-bezier(.22,.9,.28,1); }
+  .chart-reveal{ opacity:0; transform:translateY(16px); transition: opacity .7s ease, transform .7s ease; }
+  rect.estrellas-bar{ transition: height 0.9s cubic-bezier(.22,.9,.28,1), y 0.9s cubic-bezier(.22,.9,.28,1); }
+  .chart-reveal.revealed{ opacity:1; transform:translateY(0); }
   .rank-val{ width: 90px; text-align:right; font-weight:800; font-size:14px; }
 
   /* CHART */
@@ -1640,7 +1643,7 @@
           <div class="rt-btn">Horas</div>
         </div>
         <div class="chart-wrap">
-          <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
+          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
         </div>
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
@@ -1673,7 +1676,7 @@
       <div class="chart-panel">
         <div class="ventas-grid">
           <div class="tracker-card organico ventas-organico-card">
-            <div id="ventas-pie" class="ventas-pie-circle" style="background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);"></div>
+            <div id="ventas-pie" class="ventas-pie-circle chart-reveal" style="background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);"></div>
             <div class="ventas-organico-info">
               <div class="tl ventas-organico-label">Orgánico puro vs. mixto</div>
               <div class="ventas-organico-legend">
@@ -1735,7 +1738,7 @@
             <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
             <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
-              <div class="estrellas-pie" id="estrellas-agendas-pie"></div>
+              <div class="estrellas-pie chart-reveal" id="estrellas-agendas-pie"></div>
               <div class="estrellas-pie-legend" id="estrellas-agendas-legend"></div>
             </div>
             <div class="estrellas-total" id="estrellasAgendasTotal"></div>
@@ -1745,7 +1748,7 @@
             <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
             <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
-              <div class="estrellas-pie" id="estrellas-ventas-pie"></div>
+              <div class="estrellas-pie chart-reveal" id="estrellas-ventas-pie"></div>
               <div class="estrellas-pie-legend" id="estrellas-ventas-legend"></div>
             </div>
             <div class="estrellas-total" id="estrellasVentasTotal"></div>
@@ -1826,7 +1829,7 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <svg class="chart" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
+          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
@@ -1876,7 +1879,7 @@
             <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">💵 Ventas <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
             <div class="ventas-grid" style="gap:14px;">
               <div class="tracker-card organico" style="display:flex;align-items:center;gap:16px;padding:16px;">
-                <div id="vp-ventas-pie" style="width:64px;height:64px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
+                <div id="vp-ventas-pie" class="chart-reveal" style="width:64px;height:64px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%);transition:background .3s;"></div>
                 <div>
                   <div class="tl" style="margin-bottom:6px;">Orgánico vs. mixto</div>
                   <div style="display:flex;flex-direction:column;gap:4px;">
@@ -4998,11 +5001,57 @@
     document.getElementById('tk-seg-leader-val').textContent = fmtInt(totals[lSeg].seguimientos);
   }
 
+  // ===== "Reveal on scroll": los gráficos arrancan en su estado inicial
+  // (barras en 0%, líneas/tortas invisibles) y recién se animan a su valor
+  // real cuando el contenedor entra en pantalla al scrollear — no todos de
+  // golpe al cargar la página. Un solo IntersectionObserver compartido,
+  // reutilizado por rankings, fuentes, estrellas y los gráficos de línea/torta.
+  const scrollRevealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(!entry.isIntersecting) return;
+      animarBarrasEnVista(entry.target);
+      animarEstrellasEnVista(entry.target);
+      entry.target.querySelectorAll('.chart-reveal').forEach(el => el.classList.add('revealed'));
+      if(entry.target.classList.contains('chart-reveal')) entry.target.classList.add('revealed');
+    });
+  }, { threshold: 0.15 });
+
+  function observarParaRevelar(el){
+    if(el) scrollRevealObserver.observe(el);
+  }
+
+  // Barras horizontales (.rank-bar, las de Ranking y Fuentes) — se renderizan
+  // siempre en 0% con el ancho real guardado en data-target-width, y acá se
+  // las "sueltan" a su ancho de verdad. rAF doble: el navegador necesita
+  // pintar el 0% al menos un frame antes de animar al valor final, si no
+  // salta directo sin transición.
+  function animarBarrasEnVista(container){
+    const barras = container.querySelectorAll('.rank-bar[data-target-width]');
+    if(!barras.length) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      barras.forEach(b => { b.style.width = b.dataset.targetWidth; });
+    }));
+  }
+
+  // Barras verticales SVG (estrellas) — mismo criterio, pero animando
+  // height/y (crecen desde la base, de abajo hacia arriba) en vez de width.
+  function animarEstrellasEnVista(container){
+    const barras = container.querySelectorAll('rect.estrellas-bar[data-target-h]');
+    if(!barras.length) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      barras.forEach(b => {
+        b.setAttribute('height', b.getAttribute('data-target-h'));
+        b.setAttribute('y', b.getAttribute('data-target-y'));
+      });
+    }));
+  }
+
   function replaceWithFade(el, html){
     el.classList.remove('fx-refade');
     void el.offsetWidth; // reflow para reiniciar la animación
     el.innerHTML = html;
     el.classList.add('fx-refade');
+    observarParaRevelar(el);
   }
 
   function renderRanked(containerId, totals, metric, fmt){
@@ -5015,7 +5064,7 @@
         <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
         <div class="rank-dot" style="background:${colors[k]}"></div>
         <div class="rank-name">${getDisplayName(k)}</div>
-        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(totals[k][metric]/max*100)}%;background:${colors[k]}"></div></div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:${colors[k]}" data-target-width="${(totals[k][metric]/max*100)}%"></div></div>
         <div class="rank-val">${fmt(totals[k][metric])}</div>
       </div>
     `).join('');
@@ -5661,10 +5710,11 @@
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][campo]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--purple)" data-target-width="${(fuentes[key][campo]/max*100)}%"></div></div>
           <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
       `).join('');
+      observarParaRevelar(panel);
     }).catch(err => {
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
     });
@@ -5698,10 +5748,11 @@
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(fuentes[key][campo]/max*100)}%;background:var(--purple)"></div></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--purple)" data-target-width="${(fuentes[key][campo]/max*100)}%"></div></div>
           <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
       `).join('');
+      observarParaRevelar(panel);
     }).catch(err => {
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
     });
@@ -5968,8 +6019,14 @@
       const y = H - padB - h;
 
       const rect = document.createElementNS(ns,'rect');
-      rect.setAttribute('x', x); rect.setAttribute('y', y);
-      rect.setAttribute('width', barW); rect.setAttribute('height', Math.max(h,1));
+      rect.setAttribute('class', 'estrellas-bar');
+      rect.setAttribute('x', x);
+      // Arranca "aplastada" contra la base — crece hacia arriba recién
+      // cuando este gráfico entra en pantalla (ver animarEstrellasEnVista).
+      rect.setAttribute('y', H - padB);
+      rect.setAttribute('width', barW); rect.setAttribute('height', 1);
+      rect.setAttribute('data-target-y', y);
+      rect.setAttribute('data-target-h', Math.max(h,1));
       rect.setAttribute('rx', 5);
       rect.setAttribute('fill', color);
       rect.setAttribute('opacity', v ? '0.9' : '0.25');
@@ -5991,6 +6048,7 @@
       starLabel.textContent = '★'.repeat(i+1);
       svg.appendChild(starLabel);
     });
+    observarParaRevelar(svg);
   }
 
   function renderMatematicaDelExito(){
@@ -6396,6 +6454,12 @@
   inicializarFechasFuente();
   inicializarFechasVentas();
   inicializarFechasEstrellas();
+
+  // Gráficos que ya existen fijos en el HTML (no se recrean cada render,
+  // solo les cambia el contenido) — se registran UNA vez acá para el
+  // "reveal on scroll".
+  ['trendChart', 'proyeccionChart', 'ventas-pie', 'estrellas-agendas-pie', 'estrellas-ventas-pie', 'vp-ventas-pie']
+    .forEach(id => observarParaRevelar(document.getElementById(id)));
 
   document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', function(){
