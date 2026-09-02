@@ -552,9 +552,9 @@
   .rank-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .rank-name{ flex:1; font-weight:700; font-size:14px; }
   .rank-bar-wrap{ flex:2; height:7px; background:#1c1c28; border-radius:999px; overflow:hidden; margin: 0 10px; }
-  .rank-bar{ height:100%; border-radius:999px; transition: width 1.9s cubic-bezier(.22,.9,.28,1); }
-  .chart-reveal{ opacity:0; transform:translateY(16px); transition: opacity 1.7s ease, transform 1.7s ease; }
-  rect.estrellas-bar{ transition: height 1.9s cubic-bezier(.22,.9,.28,1), y 1.9s cubic-bezier(.22,.9,.28,1); }
+  .rank-bar{ height:100%; border-radius:999px; transition: width 2.9s cubic-bezier(.22,.9,.28,1); }
+  .chart-reveal{ opacity:0; transform:translateY(16px); transition: opacity 2.7s ease, transform 2.7s ease; }
+  rect.estrellas-bar{ transition: height 2.9s cubic-bezier(.22,.9,.28,1), y 2.9s cubic-bezier(.22,.9,.28,1); }
   .chart-reveal.revealed{ opacity:1; transform:translateY(0); }
   .rank-val{ width: 90px; text-align:right; font-weight:800; font-size:14px; }
 
@@ -5067,7 +5067,7 @@
   // gradient final (ya calculado y puesto en el background) se revela
   // "como las agujas de un reloj": arranca tapado con una máscara y esa
   // máscara barre en sentido horario desde las 12 hasta dar la vuelta
-  // completa. Dura ~1.9s (lento a propósito) para que se note bien,
+  // completa. Dura ~2.9s (lento a propósito) para que se note bien,
   // igual que el resto de las animaciones de scroll-reveal.
   function ocultarTortaParaReloj(el){
     if(!el) return;
@@ -5078,7 +5078,7 @@
 
   function animarTortaComoReloj(el){
     if(!el) return;
-    const DURATION = 1900;
+    const DURATION = 2900;
     let start = null;
     function step(ts){
       if(start === null) start = ts;
