@@ -490,6 +490,11 @@
   .mate-exito-proy-card .tl{ font-size:11.5px; font-weight:800; letter-spacing:0.4px; color:var(--text-dim); text-transform:uppercase; }
   .mate-exito-proy-card .tv{ font-size:24px; font-weight:800; margin-top:8px; color:var(--proy-color); letter-spacing:-0.3px; }
 
+  .estrellas-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
+  @media (max-width: 720px){ .estrellas-grid{ grid-template-columns: 1fr; } }
+  .estrellas-col h4{ margin:0 0 12px; font-size:13.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.4px; }
+  .estrellas-total{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:6px; }
+
   /* RANKING */
   .rank-toggle{ display:flex; gap:8px; margin-bottom:18px; }
   .rt-btn{
@@ -1767,6 +1772,21 @@
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
+
+        <div class="section-label" style="margin-top:24px;">⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</div>
+        <div class="estrellas-grid">
+          <div class="estrellas-col">
+            <h4>Agendas por estrellas</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
+            <div class="estrellas-total" id="estrellasAgendasTotal"></div>
+          </div>
+          <div class="estrellas-col">
+            <h4>Ventas por estrellas</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
+            <div class="estrellas-total" id="estrellasVentasTotal"></div>
+          </div>
+        </div>
+        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Total del mes activo, todo el equipo junto.</div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -4291,7 +4311,17 @@
       leads: header.findIndex(h => h.includes('lead')),
       cashOrganico: header.findIndex(h => h.includes('orgánico')),
       cashMixto: header.findIndex(h => h.includes('mixto')),
-      ventasCount: header.findIndex(h => h.includes('venta'))
+      ventasCount: header.findIndex(h => h.includes('venta')),
+      agendas1: header.findIndex(h => h.includes('agenda') && h.includes('1')),
+      agendas2: header.findIndex(h => h.includes('agenda') && h.includes('2')),
+      agendas3: header.findIndex(h => h.includes('agenda') && h.includes('3')),
+      agendas4: header.findIndex(h => h.includes('agenda') && h.includes('4')),
+      agendas5: header.findIndex(h => h.includes('agenda') && h.includes('5')),
+      ventas1: header.findIndex(h => h.includes('venta') && h.includes('1')),
+      ventas2: header.findIndex(h => h.includes('venta') && h.includes('2')),
+      ventas3: header.findIndex(h => h.includes('venta') && h.includes('3')),
+      ventas4: header.findIndex(h => h.includes('venta') && h.includes('4')),
+      ventas5: header.findIndex(h => h.includes('venta') && h.includes('5'))
     };
 
     // La fila "TOTALES / PROMEDIOS" (fila 5) ya trae la suma histórica de
@@ -4300,7 +4330,11 @@
     // $50.000), sin tener que sumar mes por mes acá.
     let cashHistorico = 0;
 
-    const out = { dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [], cashOrganico: [], cashMixto: [], ventasCount: [] };
+    const out = {
+      dates: [], seguimientos: [], cash: [], horas: [], agendas: [], leads: [], cashOrganico: [], cashMixto: [], ventasCount: [],
+      agendas1: [], agendas2: [], agendas3: [], agendas4: [], agendas5: [],
+      ventas1: [], ventas2: [], ventas3: [], ventas4: [], ventas5: []
+    };
     for(let i=headerRow+1;i<rows.length;i++){
       const r = rows[i];
       const fecha = r[idx.fecha];
@@ -4323,6 +4357,10 @@
       out.cashOrganico.push(idx.cashOrganico > -1 ? parseNum(r[idx.cashOrganico]) : 0);
       out.cashMixto.push(idx.cashMixto > -1 ? parseNum(r[idx.cashMixto]) : 0);
       out.ventasCount.push(idx.ventasCount > -1 ? parseNum(r[idx.ventasCount]) : 0);
+      [1,2,3,4,5].forEach(n => {
+        out['agendas'+n].push(idx['agendas'+n] > -1 ? parseNum(r[idx['agendas'+n]]) : 0);
+        out['ventas'+n].push(idx['ventas'+n] > -1 ? parseNum(r[idx['ventas'+n]]) : 0);
+      });
     }
     return out.dates.length ? { key: setterKey, series: out, cashHistorico } : null;
   }
@@ -4475,7 +4513,11 @@
   // números inventados.
   function buildZeroSeries(dates){
     const zeros = () => new Array(dates.length).fill(0);
-    return { dates: dates.slice(), seguimientos: zeros(), cash: zeros(), horas: zeros(), agendas: zeros(), leads: zeros() };
+    return {
+      dates: dates.slice(), seguimientos: zeros(), cash: zeros(), horas: zeros(), agendas: zeros(), leads: zeros(),
+      agendas1: zeros(), agendas2: zeros(), agendas3: zeros(), agendas4: zeros(), agendas5: zeros(),
+      ventas1: zeros(), ventas2: zeros(), ventas3: zeros(), ventas4: zeros(), ventas5: zeros()
+    };
   }
 
   async function loadLiveData(){
@@ -4529,6 +4571,7 @@
     drawFuentePanel();
     drawVentasPanel();
     renderMatematicaDelExito();
+    renderEstrellasCharts();
     showPositiveInsight();
   }
 
@@ -5621,6 +5664,77 @@
   // continúa desde hoy hasta el último día del mes en 3 ritmos (línea
   // punteada): el promedio diario real hasta ahora, +15% y -15%.
   const META_FACTURACION = 50000;
+
+  // ===== Calidad de Agendas y Ventas por estrellas (1-5, clasificación de
+  // HighLevel/Hyros) — suma de TODO el equipo en el mes activo. =====
+  function renderEstrellasCharts(){
+    function totalesPorEstrella(prefijo){
+      const totales = [0,0,0,0,0];
+      SETTER_KEYS.forEach(k => {
+        const s = setterSeries[k] || {};
+        for(let n=1; n<=5; n++){
+          totales[n-1] += (s[prefijo+n] || []).reduce((a,b) => a+b, 0);
+        }
+      });
+      return totales;
+    }
+
+    const agendasPorEstrella = totalesPorEstrella('agendas');
+    const ventasPorEstrella = totalesPorEstrella('ventas');
+
+    drawEstrellasBarChart('estrellasAgendasChart', agendasPorEstrella, '#5b9bf0');
+    drawEstrellasBarChart('estrellasVentasChart', ventasPorEstrella, '#34d399');
+
+    const totalAgendas = agendasPorEstrella.reduce((a,b)=>a+b,0);
+    const totalVentas = ventasPorEstrella.reduce((a,b)=>a+b,0);
+    document.getElementById('estrellasAgendasTotal').textContent = totalAgendas
+      ? `${fmtInt(totalAgendas)} agendas clasificadas este mes`
+      : 'Todavía no hay agendas clasificadas por estrellas este mes.';
+    document.getElementById('estrellasVentasTotal').textContent = totalVentas
+      ? `${fmtInt(totalVentas)} ventas clasificadas este mes`
+      : 'Todavía no hay ventas clasificadas por estrellas este mes.';
+  }
+
+  function drawEstrellasBarChart(svgId, valores, color){
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+    svg.innerHTML = '';
+    const ns = 'http://www.w3.org/2000/svg';
+    const W = 480, H = 220, padL = 12, padR = 12, padT = 26, padB = 34;
+    const maxV = Math.max(1, ...valores);
+    const slot = (W - padL - padR) / valores.length;
+    const barW = slot * 0.55;
+
+    valores.forEach((v, i) => {
+      const x = padL + slot*i + (slot-barW)/2;
+      const h = (H-padT-padB) * (v/maxV);
+      const y = H - padB - h;
+
+      const rect = document.createElementNS(ns,'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', barW); rect.setAttribute('height', Math.max(h,1));
+      rect.setAttribute('rx', 5);
+      rect.setAttribute('fill', color);
+      rect.setAttribute('opacity', v ? '0.9' : '0.25');
+      svg.appendChild(rect);
+
+      const valLabel = document.createElementNS(ns,'text');
+      valLabel.setAttribute('x', x+barW/2); valLabel.setAttribute('y', Math.max(y-8, padT-8));
+      valLabel.setAttribute('text-anchor','middle');
+      valLabel.setAttribute('font-size','13'); valLabel.setAttribute('font-weight','700');
+      valLabel.setAttribute('fill','#e5e5ea');
+      valLabel.textContent = fmtInt(v);
+      svg.appendChild(valLabel);
+
+      const starLabel = document.createElementNS(ns,'text');
+      starLabel.setAttribute('x', x+barW/2); starLabel.setAttribute('y', H-14);
+      starLabel.setAttribute('text-anchor','middle');
+      starLabel.setAttribute('font-size','14');
+      starLabel.setAttribute('fill','#f5c563');
+      starLabel.textContent = '★'.repeat(i+1);
+      svg.appendChild(starLabel);
+    });
+  }
 
   function renderMatematicaDelExito(){
     const hoyReal = new Date();
