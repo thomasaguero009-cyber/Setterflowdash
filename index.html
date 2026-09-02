@@ -35,6 +35,11 @@
     --c-franco: #f0745b;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background: var(--bg); }
+  ::-webkit-scrollbar-thumb{ background: var(--green); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--green); opacity:0.8; }
+  *{ scrollbar-color: var(--green) var(--bg); }
   body.light-theme{
     --bg: #eef0f6;
     --sidebar: #ffffff;
@@ -518,7 +523,7 @@
 
   .rank-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
   .rank-panel{ background: var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
-  .rank-panel h3{ font-size:15px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .rank-panel h3, .chart-panel h3{ font-size:15px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
   .rank-row{ display:flex; align-items:center; gap:14px; padding: 11px 0; }
   .rank-loading{ font-size:13px; color:var(--text-dim); padding:14px 0; }
   .rank-row.gold-row{
@@ -1731,10 +1736,10 @@
           </div>
         </div>
       </div>
-      <div class="chart-panel">
-        <div class="estrellas-grid">
+      <div class="rank-grid">
+        <div class="chart-panel">
+          <h3>⭐ Agendas por estrellas</h3>
           <div class="estrellas-col">
-            <h4>Agendas por estrellas — todo el equipo</h4>
             <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
             <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
@@ -1743,8 +1748,10 @@
             </div>
             <div class="estrellas-total" id="estrellasAgendasTotal"></div>
           </div>
+        </div>
+        <div class="chart-panel">
+          <h3>⭐ Ventas por estrellas</h3>
           <div class="estrellas-col">
-            <h4>Ventas por estrellas — todo el equipo</h4>
             <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
             <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
@@ -1754,8 +1761,8 @@
             <div class="estrellas-total" id="estrellasVentasTotal"></div>
           </div>
         </div>
-        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). El desglose por persona está en "Ver perfil" de cada setter.</div>
       </div>
+      <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). El desglose por persona está en "Ver perfil" de cada setter.</div>
 
       <div class="section-label">📡 Fuentes</div>
       <div class="chart-panel">
@@ -5017,7 +5024,16 @@
   }, { threshold: 0.15 });
 
   function observarParaRevelar(el){
-    if(el) scrollRevealObserver.observe(el);
+    if(!el) return;
+    // Los paneles reusan el mismo elemento en cada render (recarga de datos,
+    // cambio de filtro, refresco periódico). observe() sobre un target que
+    // ya está observado no hace nada (spec) — si el gráfico ya se reveló
+    // una vez, las barras nuevas (recién puestas en 0%) se quedaban
+    // congeladas para siempre. Por eso se desuscribe antes de re-observar:
+    // así cada render vuelve a evaluarse (y si el panel ya está en pantalla,
+    // el callback se dispara de nuevo casi al instante).
+    scrollRevealObserver.unobserve(el);
+    scrollRevealObserver.observe(el);
   }
 
   // Barras horizontales (.rank-bar, las de Ranking y Fuentes) — se renderizan
