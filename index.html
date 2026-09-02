@@ -495,7 +495,8 @@
   .estrellas-col h4{ margin:0 0 12px; font-size:13.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.4px; }
   .estrellas-total{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:6px; }
   .estrellas-mini-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--text-dim); margin:8px 0 2px; }
-  .estrellas-pie-row{ display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+  .estrellas-divider{ height:1px; background:var(--border); margin:18px 0; }
+  .estrellas-pie-row{ display:flex; align-items:center; gap:16px; margin-bottom:14px; }
   .estrellas-pie{ width:80px; height:80px; border-radius:50%; flex-shrink:0; background:var(--border); transition:background .3s; }
   .estrellas-pie-legend{ display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--text-dim); flex:1; min-width:0; }
   .estrellas-pie-legend .epl-row{ display:flex; align-items:center; gap:7px; white-space:nowrap; }
@@ -1731,20 +1732,22 @@
         <div class="estrellas-grid">
           <div class="estrellas-col">
             <h4>Agendas por estrellas — todo el equipo</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
+            <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
               <div class="estrellas-pie" id="estrellas-agendas-pie"></div>
               <div class="estrellas-pie-legend" id="estrellas-agendas-legend"></div>
             </div>
-            <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
             <div class="estrellas-total" id="estrellasAgendasTotal"></div>
           </div>
           <div class="estrellas-col">
             <h4>Ventas por estrellas — todo el equipo</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
+            <div class="estrellas-divider"></div>
             <div class="estrellas-pie-row">
               <div class="estrellas-pie" id="estrellas-ventas-pie"></div>
               <div class="estrellas-pie-legend" id="estrellas-ventas-legend"></div>
             </div>
-            <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
             <div class="estrellas-total" id="estrellasVentasTotal"></div>
           </div>
         </div>
@@ -5762,7 +5765,7 @@
   }
 
   // Rojo (1★, peor calificado) a verde (5★, mejor calificado).
-  const ESTRELLAS_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'];
+  const ESTRELLAS_COLORS = ['#dc2626', '#f97316', '#facc15', '#4ade80', '#15803d'];
 
   function renderEstrellasPie(pieId, legendId, valores){
     const pie = document.getElementById(pieId);
