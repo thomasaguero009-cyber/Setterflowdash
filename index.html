@@ -6056,7 +6056,7 @@
       const d = recuentoAyer[k];
       if(!d) return true;
       return !(d.seguimientos || d.cash || d.horas || d.agendas);
-    }).map(NAME_CAP);
+    }).map(getDisplayName);
 
     if(missing.length){
       const fecha = recuentoAyer.fecha || 'ayer';
