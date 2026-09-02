@@ -1697,6 +1697,46 @@
         <div class="data-status" id="ventasStatus">Cargando datos del Google Sheet…</div>
       </div>
 
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</span>
+        <div style="position:relative;">
+          <button type="button" id="estrellasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;text-transform:none;letter-spacing:normal;">
+            📅 <span id="estrellasCalLabel">Este mes</span>
+          </button>
+          <div id="estrellasCalPopup" class="fuente-cal-popup" style="display:none;">
+            <div class="fuente-cal-header">
+              <button type="button" id="estrellasCalPrev" class="fuente-cal-nav">‹</button>
+              <span id="estrellasCalMesLabel"></span>
+              <button type="button" id="estrellasCalNext" class="fuente-cal-nav">›</button>
+            </div>
+            <div class="fuente-cal-dow">
+              <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
+            </div>
+            <div class="fuente-cal-grid" id="estrellasCalGrid"></div>
+            <div class="fuente-cal-quick">
+              <button type="button" class="estrellas-cal-quickbtn" data-quick="hoy">Hoy</button>
+              <button type="button" class="estrellas-cal-quickbtn" data-quick="mes">Este mes</button>
+            </div>
+            <button type="button" id="estrellasCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="estrellas-grid">
+          <div class="estrellas-col">
+            <h4>Agendas por estrellas — todo el equipo</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
+            <div class="estrellas-total" id="estrellasAgendasTotal"></div>
+          </div>
+          <div class="estrellas-col">
+            <h4>Ventas por estrellas — todo el equipo</h4>
+            <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
+            <div class="estrellas-total" id="estrellasVentasTotal"></div>
+          </div>
+        </div>
+        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). El desglose por persona está en "Ver perfil" de cada setter.</div>
+      </div>
+
       <div class="section-label">📡 Fuentes</div>
       <div class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
@@ -1773,23 +1813,6 @@
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
-      </div>
-
-      <div class="section-label">⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</div>
-      <div class="chart-panel">
-        <div class="estrellas-grid">
-          <div class="estrellas-col">
-            <h4>Agendas por estrellas — todo el equipo</h4>
-            <svg class="chart" viewBox="0 0 480 220" id="estrellasAgendasChart"></svg>
-            <div class="estrellas-total" id="estrellasAgendasTotal"></div>
-          </div>
-          <div class="estrellas-col">
-            <h4>Ventas por estrellas — todo el equipo</h4>
-            <svg class="chart" viewBox="0 0 480 220" id="estrellasVentasChart"></svg>
-            <div class="estrellas-total" id="estrellasVentasTotal"></div>
-          </div>
-        </div>
-        <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). Total del mes activo. El desglose por persona está en "Ver perfil" de cada setter.</div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
@@ -2520,6 +2543,7 @@
     // recalcularlo ahora que ya se sabe el mes real que se eligió acá.
     inicializarFechasFuente();
     inicializarFechasVentas();
+    inicializarFechasEstrellas();
     window.scrollTo({top:0});
 
     loadingBrand.classList.remove('corner');
@@ -5269,9 +5293,12 @@
   document.querySelectorAll('.fuente-cal-quickbtn').forEach(btn => {
     btn.addEventListener('click', () => {
       const hoy = new Date();
+      // "Este mes" = el mes ACTIVO del dashboard, no el mes calendario real
+      // de hoy (mismo criterio que inicializarFechasFuente).
+      const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
       fuenteCalTemp = btn.dataset.quick === 'hoy'
         ? { desde: hoy, hasta: hoy }
-        : { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy };
+        : { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
       fuenteCalMes = new Date(fuenteCalTemp.desde.getFullYear(), fuenteCalTemp.desde.getMonth(), 1);
       renderCalendarioPopup();
     });
@@ -5403,9 +5430,12 @@
   document.querySelectorAll('.ventas-cal-quickbtn').forEach(btn => {
     btn.addEventListener('click', () => {
       const hoy = new Date();
+      // "Este mes" = el mes ACTIVO del dashboard, no el mes calendario real
+      // de hoy (mismo criterio que inicializarFechasVentas).
+      const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
       ventasCalTemp = btn.dataset.quick === 'hoy'
         ? { desde: hoy, hasta: hoy }
-        : { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy };
+        : { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
       ventasCalMes = new Date(ventasCalTemp.desde.getFullYear(), ventasCalTemp.desde.getMonth(), 1);
       renderVentasCalendarioPopup();
     });
@@ -5685,13 +5715,31 @@
   const META_FACTURACION = 50000;
 
   // ===== Calidad de Agendas y Ventas por estrellas (1-5, clasificación de
-  // HighLevel/Hyros) — suma de TODO el equipo en el mes activo. =====
-  function estrellasDeSetter(k, prefijo){
+  // HighLevel/Hyros) — suma de TODO el equipo, filtrable por día (calendario
+  // propio, igual que Ventas/Fuentes) en vez de fijo al mes activo entero. =====
+  // Sin "rango" (ej. desde "Ver perfil") usa TODO lo que ya trae setterSeries
+  // (el mes activo completo, sin filtrar más).
+  function estrellasDeSetter(k, prefijo, rango){
     const s = setterSeries[k] || {};
     const totales = [0,0,0,0,0];
-    for(let n=1; n<=5; n++){
-      totales[n-1] = (s[prefijo+n] || []).reduce((a,b) => a+b, 0);
+    const dates = s.dates || [];
+    // Igual que drawVentasPanel: normalizado a inicio/fin de día — si no,
+    // "Hoy" (desde=hasta=ahora, con hora) descartaba el día entero porque
+    // las fechas parseadas de la hoja quedan siempre en la medianoche.
+    let desdeD = null, hastaD = null;
+    if(rango && rango.desde && rango.hasta){
+      desdeD = new Date(rango.desde.getFullYear(), rango.desde.getMonth(), rango.desde.getDate(), 0, 0, 0);
+      hastaD = new Date(rango.hasta.getFullYear(), rango.hasta.getMonth(), rango.hasta.getDate(), 23, 59, 59);
     }
+    dates.forEach((fechaStr, i) => {
+      if(desdeD && hastaD){
+        const fecha = parseDDMMYYYY(fechaStr);
+        if(fecha < desdeD || fecha > hastaD) return;
+      }
+      for(let n=1; n<=5; n++){
+        totales[n-1] += (s[prefijo+n] && s[prefijo+n][i]) || 0;
+      }
+    });
     return totales;
   }
 
@@ -5700,8 +5748,8 @@
   }
 
   function renderEstrellasCharts(){
-    const agendasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'agendas')));
-    const ventasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'ventas')));
+    const agendasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'agendas', estrellasRango)));
+    const ventasPorEstrella = sumarArrays(...SETTER_KEYS.map(k => estrellasDeSetter(k, 'ventas', estrellasRango)));
 
     drawEstrellasBarChart('estrellasAgendasChart', agendasPorEstrella, '#5b9bf0');
     drawEstrellasBarChart('estrellasVentasChart', ventasPorEstrella, '#34d399');
@@ -5709,15 +5757,151 @@
     const totalAgendas = agendasPorEstrella.reduce((a,b)=>a+b,0);
     const totalVentas = ventasPorEstrella.reduce((a,b)=>a+b,0);
     document.getElementById('estrellasAgendasTotal').textContent = totalAgendas
-      ? `${fmtInt(totalAgendas)} agendas clasificadas este mes`
-      : 'Todavía no hay agendas clasificadas por estrellas este mes.';
+      ? `${fmtInt(totalAgendas)} agendas clasificadas en el rango elegido`
+      : 'Todavía no hay agendas clasificadas por estrellas en este rango.';
     document.getElementById('estrellasVentasTotal').textContent = totalVentas
-      ? `${fmtInt(totalVentas)} ventas clasificadas este mes`
-      : 'Todavía no hay ventas clasificadas por estrellas este mes.';
+      ? `${fmtInt(totalVentas)} ventas clasificadas en el rango elegido`
+      : 'Todavía no hay ventas clasificadas por estrellas en este rango.';
     // El desglose INDIVIDUAL por setter se dibuja en el modal "Ver perfil"
     // (ver openPerfilModal → vpEstrellasAgendasChart/vpEstrellasVentasChart),
     // no acá en Inicio — acá solo va el total del equipo.
   }
+
+  // ===== Calendario de "Calidad de Agendas y Ventas" — mismo mecanismo que
+  // el de Ventas/Fuentes (copiado a propósito, cada uno con su propio estado). =====
+  let estrellasRango = { desde: null, hasta: null };
+  let estrellasCalMes = new Date();
+  let estrellasCalTemp = { desde: null, hasta: null };
+
+  function actualizarEstrellasLabelCalendario(){
+    const label = document.getElementById('estrellasCalLabel');
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    if(fuenteMismoDia(estrellasRango.desde, primerDiaMes) && fuenteMismoDia(estrellasRango.hasta, ultimoDiaMes)){
+      label.textContent = 'Este mes';
+    } else if(fuenteMismoDia(estrellasRango.desde, estrellasRango.hasta)){
+      label.textContent = fuenteDDMMYYYY(estrellasRango.desde);
+    } else {
+      label.textContent = fuenteDDMMYYYY(estrellasRango.desde) + ' → ' + fuenteDDMMYYYY(estrellasRango.hasta);
+    }
+  }
+
+  function inicializarFechasEstrellas(){
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    estrellasRango = { desde: primerDiaMes, hasta: ultimoDiaMes };
+    estrellasCalMes = new Date(yyyy, mm, 1);
+    actualizarEstrellasLabelCalendario();
+  }
+
+  function renderEstrellasCalendarioPopup(){
+    document.getElementById('estrellasCalMesLabel').textContent = MESES_FUENTE[estrellasCalMes.getMonth()] + ' ' + estrellasCalMes.getFullYear();
+    const grid = document.getElementById('estrellasCalGrid');
+    const primerDia = new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth(), 1);
+    const startOffset = primerDia.getDay();
+    const diasEnMes = new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth()+1, 0).getDate();
+    const diasMesAnterior = new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth(), 0).getDate();
+    const hoy = new Date();
+
+    const celdas = [];
+    for(let i=startOffset-1;i>=0;i--){
+      celdas.push({ dia: diasMesAnterior - i, fecha: new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth()-1, diasMesAnterior - i), outside: true });
+    }
+    for(let d=1; d<=diasEnMes; d++){
+      celdas.push({ dia: d, fecha: new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth(), d), outside: false });
+    }
+    let siguienteDia = 1;
+    while(celdas.length < 42){
+      celdas.push({ dia: siguienteDia, fecha: new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth()+1, siguienteDia), outside: true });
+      siguienteDia++;
+    }
+
+    const desde = estrellasCalTemp.desde, hasta = estrellasCalTemp.hasta;
+    grid.innerHTML = celdas.map(c => {
+      const classes = ['fuente-cal-day'];
+      if(c.outside) classes.push('outside');
+      if(fuenteMismoDia(c.fecha, hoy)) classes.push('today');
+      if(desde && hasta){
+        if(c.fecha >= desde && c.fecha <= hasta) classes.push('in-range');
+        if(fuenteMismoDia(c.fecha, desde)) classes.push('range-start');
+        if(fuenteMismoDia(c.fecha, hasta)) classes.push('range-end');
+      } else if(desde && fuenteMismoDia(c.fecha, desde)){
+        classes.push('range-start', 'range-end');
+      }
+      return `<button type="button" class="${classes.join(' ')}" data-time="${c.fecha.getTime()}">${c.dia}</button>`;
+    }).join('');
+  }
+
+  function abrirEstrellasCalendarioPopup(){
+    estrellasCalMes = new Date(estrellasRango.desde.getFullYear(), estrellasRango.desde.getMonth(), 1);
+    estrellasCalTemp = { desde: estrellasRango.desde, hasta: estrellasRango.hasta };
+    renderEstrellasCalendarioPopup();
+    document.getElementById('estrellasCalPopup').style.display = 'block';
+  }
+
+  function cerrarEstrellasCalendarioPopup(){
+    document.getElementById('estrellasCalPopup').style.display = 'none';
+  }
+
+  document.getElementById('estrellasCalBtn').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const popup = document.getElementById('estrellasCalPopup');
+    if(popup.style.display === 'block') cerrarEstrellasCalendarioPopup();
+    else abrirEstrellasCalendarioPopup();
+  });
+  document.getElementById('estrellasCalPopup').addEventListener('click', (ev) => ev.stopPropagation());
+  document.addEventListener('click', cerrarEstrellasCalendarioPopup);
+
+  document.getElementById('estrellasCalPrev').addEventListener('click', () => {
+    estrellasCalMes = new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth()-1, 1);
+    renderEstrellasCalendarioPopup();
+  });
+  document.getElementById('estrellasCalNext').addEventListener('click', () => {
+    estrellasCalMes = new Date(estrellasCalMes.getFullYear(), estrellasCalMes.getMonth()+1, 1);
+    renderEstrellasCalendarioPopup();
+  });
+
+  document.getElementById('estrellasCalGrid').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.fuente-cal-day');
+    if(!btn) return;
+    const fecha = new Date(Number(btn.dataset.time));
+    if(!estrellasCalTemp.desde || (estrellasCalTemp.desde && estrellasCalTemp.hasta)){
+      estrellasCalTemp = { desde: fecha, hasta: null };
+    } else if(fecha < estrellasCalTemp.desde){
+      estrellasCalTemp = { desde: fecha, hasta: estrellasCalTemp.desde };
+    } else {
+      estrellasCalTemp = { desde: estrellasCalTemp.desde, hasta: fecha };
+    }
+    renderEstrellasCalendarioPopup();
+  });
+
+  document.querySelectorAll('.estrellas-cal-quickbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hoy = new Date();
+      // "Este mes" tiene que ser el mes ACTIVO del dashboard, no el mes
+      // calendario real de hoy (mismo criterio que inicializarFechasEstrellas
+      // — si no, con un mes activo distinto al real este botón saltaba al
+      // mes de hoy en vez de mostrar el mes que está elegido arriba).
+      const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
+      estrellasCalTemp = btn.dataset.quick === 'hoy'
+        ? { desde: hoy, hasta: hoy }
+        : { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
+      estrellasCalMes = new Date(estrellasCalTemp.desde.getFullYear(), estrellasCalTemp.desde.getMonth(), 1);
+      renderEstrellasCalendarioPopup();
+    });
+  });
+
+  document.getElementById('estrellasCalAplicar').addEventListener('click', () => {
+    if(!estrellasCalTemp.desde) return;
+    estrellasRango = { desde: estrellasCalTemp.desde, hasta: estrellasCalTemp.hasta || estrellasCalTemp.desde };
+    actualizarEstrellasLabelCalendario();
+    cerrarEstrellasCalendarioPopup();
+    renderEstrellasCharts();
+  });
 
   function drawEstrellasBarChart(svgId, valores, color, opts){
     const svg = document.getElementById(svgId);
@@ -6163,6 +6347,7 @@
 
   inicializarFechasFuente();
   inicializarFechasVentas();
+  inicializarFechasEstrellas();
 
   document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', function(){
