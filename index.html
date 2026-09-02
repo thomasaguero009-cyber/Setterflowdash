@@ -5010,8 +5010,9 @@
 
   // ===== "Reveal on scroll": los gráficos arrancan en su estado inicial
   // (barras en 0%, líneas/tortas invisibles) y recién se animan a su valor
-  // real cuando el contenedor entra en pantalla al scrollear — no todos de
-  // golpe al cargar la página. Un solo IntersectionObserver compartido,
+  // real la PRIMERA vez que el contenedor entra en pantalla al scrollear —
+  // una sola vez por elemento, no cada vez que se recargan los datos (auto-
+  // refresh, cambio de filtro). Un solo IntersectionObserver compartido,
   // reutilizado por rankings, fuentes, estrellas y los gráficos de línea/torta.
   const scrollRevealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -5021,19 +5022,16 @@
       animarTortasEnVista(entry.target);
       entry.target.querySelectorAll('.chart-reveal').forEach(el => el.classList.add('revealed'));
       if(entry.target.classList.contains('chart-reveal')) entry.target.classList.add('revealed');
+      // Ya se reveló: no hace falta volver a animarlo en próximos renders
+      // (los render*/draw* de cada panel arrancan directo en el valor final
+      // cuando ven este flag puesto).
+      entry.target.dataset.revelado = '1';
+      scrollRevealObserver.unobserve(entry.target);
     });
   }, { threshold: 0.15 });
 
   function observarParaRevelar(el){
-    if(!el) return;
-    // Los paneles reusan el mismo elemento en cada render (recarga de datos,
-    // cambio de filtro, refresco periódico). observe() sobre un target que
-    // ya está observado no hace nada (spec) — si el gráfico ya se reveló
-    // una vez, las barras nuevas (recién puestas en 0%) se quedaban
-    // congeladas para siempre. Por eso se desuscribe antes de re-observar:
-    // así cada render vuelve a evaluarse (y si el panel ya está en pantalla,
-    // el callback se dispara de nuevo casi al instante).
-    scrollRevealObserver.unobserve(el);
+    if(!el || el.dataset.revelado === '1') return;
     scrollRevealObserver.observe(el);
   }
 
@@ -5071,6 +5069,12 @@
   // igual que el resto de las animaciones de scroll-reveal.
   function ocultarTortaParaReloj(el){
     if(!el) return;
+    // Si ya se reveló una vez, no la volvemos a tapar — arranca directo
+    // mostrando el valor final (la animación de reloj es solo la primera vez).
+    if(el.dataset.revelado === '1'){
+      el.style.webkitMaskImage = el.style.maskImage = 'none';
+      return;
+    }
     const oculto = 'conic-gradient(#000 0deg, transparent 0deg)';
     el.style.webkitMaskImage = oculto;
     el.style.maskImage = oculto;
@@ -5119,15 +5123,19 @@
     const max = totals[sorted[0]][metric] || 1;
     const posLabels = ['1°','2°','3°','4°'];
     const el = document.getElementById(containerId);
-    const html = sorted.map((k,i) => `
+    const yaRevelado = el.dataset.revelado === '1';
+    const html = sorted.map((k,i) => {
+      const pct = (totals[k][metric]/max*100);
+      return `
       <div class="rank-row ${i===0?'gold-row':''}">
         <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
         <div class="rank-dot" style="background:${colors[k]}"></div>
         <div class="rank-name">${getDisplayName(k)}</div>
-        <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:${colors[k]}" data-target-width="${(totals[k][metric]/max*100)}%"></div></div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${yaRevelado ? pct : 0}%;background:${colors[k]}" data-target-width="${pct}%"></div></div>
         <div class="rank-val">${fmt(totals[k][metric])}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     replaceWithFade(el, html);
   }
 
@@ -5772,14 +5780,18 @@
       const sorted = keys.sort((a,b) => fuentes[b][campo] - fuentes[a][campo]);
       const max = fuentes[sorted[0]][campo] || 1;
       const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
-      panel.innerHTML = sorted.map((key, i) => `
+      const yaRevelado = panel.dataset.revelado === '1';
+      panel.innerHTML = sorted.map((key, i) => {
+        const pct = (fuentes[key][campo]/max*100);
+        return `
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--purple)" data-target-width="${(fuentes[key][campo]/max*100)}%"></div></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${yaRevelado ? pct : 0}%;background:var(--purple)" data-target-width="${pct}%"></div></div>
           <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       observarParaRevelar(panel);
     }).catch(err => {
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
@@ -5810,14 +5822,18 @@
       const sorted = keys.sort((a,b) => fuentes[b][campo] - fuentes[a][campo]);
       const max = fuentes[sorted[0]][campo] || 1;
       const posLabels = ['1°','2°','3°','4°','5°','6°','7°','8°'];
-      panel.innerHTML = sorted.map((key, i) => `
+      const yaRevelado = panel.dataset.revelado === '1';
+      panel.innerHTML = sorted.map((key, i) => {
+        const pct = (fuentes[key][campo]/max*100);
+        return `
         <div class="rank-row ${i===0?'gold-row':''}">
           <div class="rank-pos ${i===0?'gold':''}">${posLabels[i] || (i+1)+'°'}</div>
           <div class="rank-name">${fuentes[key].cuenta}<span style="color:var(--text-dim);font-weight:400;"> · ${fuentes[key].canal}</span></div>
-          <div class="rank-bar-wrap"><div class="rank-bar" style="width:0%;background:var(--purple)" data-target-width="${(fuentes[key][campo]/max*100)}%"></div></div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${yaRevelado ? pct : 0}%;background:var(--purple)" data-target-width="${pct}%"></div></div>
           <div class="rank-val">${fmt(fuentes[key][campo])}</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       observarParaRevelar(panel);
     }).catch(err => {
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
@@ -6074,6 +6090,7 @@
   function drawEstrellasBarChart(svgId, valores, color, opts){
     const svg = document.getElementById(svgId);
     if(!svg) return;
+    const yaRevelado = svg.dataset.revelado === '1';
     svg.innerHTML = '';
     const ns = 'http://www.w3.org/2000/svg';
     const o = opts || {};
@@ -6090,10 +6107,12 @@
       const rect = document.createElementNS(ns,'rect');
       rect.setAttribute('class', 'estrellas-bar');
       rect.setAttribute('x', x);
-      // Arranca "aplastada" contra la base — crece hacia arriba recién
-      // cuando este gráfico entra en pantalla (ver animarEstrellasEnVista).
-      rect.setAttribute('y', H - padB);
-      rect.setAttribute('width', barW); rect.setAttribute('height', 1);
+      // Arranca "aplastada" contra la base y crece hacia arriba recién
+      // cuando este gráfico entra en pantalla la PRIMERA vez (ver
+      // animarEstrellasEnVista) — si ya se reveló antes, arranca directo
+      // en su valor final (no se repite la animación en cada recarga).
+      rect.setAttribute('y', yaRevelado ? y : (H - padB));
+      rect.setAttribute('width', barW); rect.setAttribute('height', yaRevelado ? Math.max(h,1) : 1);
       rect.setAttribute('data-target-y', y);
       rect.setAttribute('data-target-h', Math.max(h,1));
       rect.setAttribute('rx', 5);
