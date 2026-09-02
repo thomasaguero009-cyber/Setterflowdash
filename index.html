@@ -494,8 +494,6 @@
   @media (max-width: 720px){ .estrellas-grid{ grid-template-columns: 1fr; } }
   .estrellas-col h4{ margin:0 0 12px; font-size:13.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.4px; }
   .estrellas-total{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:6px; }
-  .estrellas-mini-row{ font-size:12px; line-height:1.7; color:var(--text-dim); }
-  .estrellas-mini-row b{ color:var(--text); font-weight:700; }
   .estrellas-mini-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--text-dim); margin:8px 0 2px; }
 
   /* RANKING */
@@ -5704,31 +5702,31 @@
       ? `${fmtInt(totalVentas)} ventas clasificadas este mes`
       : 'Todavía no hay ventas clasificadas por estrellas este mes.';
 
-    const filaEstrellas = (valores) => [1,2,3,4,5].map(n => `${n}★ <b>${fmtInt(valores[n-1])}</b>`).join(' &nbsp;·&nbsp; ');
     const grid = document.getElementById('estrellas-setters-grid');
     if(grid){
-      grid.innerHTML = SETTER_KEYS.map(k => {
-        const ag = estrellasDeSetter(k, 'agendas');
-        const ve = estrellasDeSetter(k, 'ventas');
-        return `
-          <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
-            <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
-            <div class="estrellas-mini-label">Agendas</div>
-            <div class="estrellas-mini-row">${filaEstrellas(ag)}</div>
-            <div class="estrellas-mini-label">Ventas</div>
-            <div class="estrellas-mini-row">${filaEstrellas(ve)}</div>
-          </div>
-        `;
-      }).join('');
+      grid.innerHTML = SETTER_KEYS.map(k => `
+        <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
+          <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
+          <div class="estrellas-mini-label">Agendas</div>
+          <svg class="chart" viewBox="0 0 480 160" id="estrellas-agendas-${k}"></svg>
+          <div class="estrellas-mini-label">Ventas</div>
+          <svg class="chart" viewBox="0 0 480 160" id="estrellas-ventas-${k}"></svg>
+        </div>
+      `).join('');
+      SETTER_KEYS.forEach(k => {
+        drawEstrellasBarChart(`estrellas-agendas-${k}`, estrellasDeSetter(k, 'agendas'), colors[k], { H: 160, padT: 20, padB: 26 });
+        drawEstrellasBarChart(`estrellas-ventas-${k}`, estrellasDeSetter(k, 'ventas'), colors[k], { H: 160, padT: 20, padB: 26 });
+      });
     }
   }
 
-  function drawEstrellasBarChart(svgId, valores, color){
+  function drawEstrellasBarChart(svgId, valores, color, opts){
     const svg = document.getElementById(svgId);
     if(!svg) return;
     svg.innerHTML = '';
     const ns = 'http://www.w3.org/2000/svg';
-    const W = 480, H = 220, padL = 12, padR = 12, padT = 26, padB = 34;
+    const o = opts || {};
+    const W = 480, H = o.H || 220, padL = 12, padR = 12, padT = o.padT || 26, padB = o.padB || 34;
     const maxV = Math.max(1, ...valores);
     const slot = (W - padL - padR) / valores.length;
     const barW = slot * 0.55;
