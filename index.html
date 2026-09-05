@@ -6938,7 +6938,9 @@
       const rCond = (diaDate instanceof Date && !isNaN(diaDate)) ? calcularCondicionSemana(campoActual, diaDate) : null;
       const condHtml = rCond ? (() => {
         const info = CONDICIONES_INFO[rCond.condicion];
-        return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">— esa semana</span></div>`;
+        const jueves = rCond.semanaActual.fin;
+        const fechaJueves = String(jueves.getDate()).padStart(2,'0') + '/' + String(jueves.getMonth()+1).padStart(2,'0');
+        return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">— semana hasta el jue. ${fechaJueves}</span></div>`;
       })() : '';
       tooltip.innerHTML = `
         ${condHtml}
