@@ -6325,8 +6325,19 @@
       path.setAttribute('stroke', esc.color);
       path.setAttribute('stroke-width','2.5');
       path.setAttribute('stroke-linecap','round');
-      path.setAttribute('stroke-dasharray','6,4');
       svg.appendChild(path);
+      if(cohetazoAnimado){
+        path.setAttribute('stroke-dasharray','6,4');
+      } else {
+        // Arranca oculta (trazo sólido invisible por el dashoffset, sin
+        // el patrón de puntitos todavía) — se despliega recién después
+        // de que el cohete llega a "hoy", y ahí se le pone el patrón
+        // punteado (6,4) definitivo.
+        const totalLen = path.getTotalLength();
+        path.style.strokeDasharray = String(totalLen);
+        path.style.strokeDashoffset = String(totalLen);
+      }
+      esc.pathEl = path;
     });
 
     // El 🚀 se dibuja ACÁ (después de las líneas de proyección) a propósito
@@ -6384,7 +6395,8 @@
       svg.appendChild(rocket);
 
       if(!cohetazoAnimado && pathReal){
-        prepararDespegueCohete({ path: pathReal, trail: trailReal, rocket, halo, halo2, flameOuter, flameInner });
+        const proyeccionPaths = escenarios.map(e => e.pathEl).filter(Boolean);
+        prepararDespegueCohete({ path: pathReal, trail: trailReal, rocket, halo, halo2, flameOuter, flameInner, proyeccionPaths });
       }
     }
 
@@ -6493,9 +6505,9 @@
     return { x: x - Math.cos(rad) * dist, y: y - Math.sin(rad) * dist };
   }
 
-  function animarDespegueCohete({ path, trail, rocket, halo, halo2, flameOuter, flameInner }){
+  function animarDespegueCohete({ path, trail, rocket, halo, halo2, flameOuter, flameInner, proyeccionPaths }){
     const totalLen = path.getTotalLength();
-    const duracionMs = 1800;
+    const duracionMs = 3400; // despacio a propósito, para que se note el despegue
     const inicio = performance.now();
     function frame(ahora){
       const t = Math.min(1, (ahora - inicio) / duracionMs);
@@ -6515,6 +6527,28 @@
       flameOuter.setAttribute('cx', flamePos.x); flameOuter.setAttribute('cy', flamePos.y);
       flameInner.setAttribute('cx', flamePos.x); flameInner.setAttribute('cy', flamePos.y);
       if(t < 1) requestAnimationFrame(frame);
+      else if(proyeccionPaths && proyeccionPaths.length) animarLineasProyeccion(proyeccionPaths);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Una vez que el cohete llega a "hoy", las 3 líneas punteadas de
+  // proyección (optimista/actual/pesimista) se despliegan a su vez desde
+  // ahí hacia el final del mes, mismo truco de stroke-dashoffset. Al
+  // terminar cada una se le pone el patrón de puntitos (6,4) definitivo.
+  function animarLineasProyeccion(paths){
+    const duracionMs = 1100;
+    const inicio = performance.now();
+    const longitudes = paths.map(p => p.getTotalLength());
+    function frame(ahora){
+      const t = Math.min(1, (ahora - inicio) / duracionMs);
+      const easedT = 1 - Math.pow(1 - t, 3);
+      paths.forEach((p, i) => { p.style.strokeDashoffset = String(longitudes[i] * (1 - easedT)); });
+      if(t < 1){
+        requestAnimationFrame(frame);
+      } else {
+        paths.forEach(p => { p.style.strokeDasharray = '6,4'; p.style.strokeDashoffset = '0'; });
+      }
     }
     requestAnimationFrame(frame);
   }
