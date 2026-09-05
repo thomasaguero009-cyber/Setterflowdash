@@ -4692,6 +4692,11 @@
           SETTER_KEYS.forEach(k => {
             setterSeriesCompleto[k] = bySetterCompleto[k] || buildZeroSeries(fechasReferenciaCompleto);
           });
+          // La hoja trae filas pre-cargadas para días futuros del año (a
+          // veces con más de un mes de anticipación) — sin este recorte,
+          // "el último día con datos" se calculaba mal (tomaba esas filas
+          // futuras vacías), rompiendo la Condición semanal.
+          trimTrailingEmptyDays(setterSeriesCompleto);
         }
       }
     } catch(err){ /* keep demo */ }
