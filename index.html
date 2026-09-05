@@ -532,6 +532,8 @@
   .rt-btn:hover:not(.active){ background: var(--card-hover); }
   .vp-toggle{ flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   .vp-toggle .rt-btn{ padding:6px 12px; font-size:11.5px; }
+  .vista-toggle{ gap:6px; }
+  .vista-toggle .rt-btn{ padding:6px 14px; font-size:11.5px; }
 
   .rank-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
   .rank-panel{ background: var(--card); border:1px solid var(--border); border-radius:16px; padding:22px; }
@@ -1667,7 +1669,13 @@
         </div>
       </div>
 
-      <div class="section-label" id="nav-metricas">📈 Métricas - Setters</div>
+      <div class="section-label" id="nav-metricas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>📈 Métricas - Setters</span>
+        <div class="rank-toggle vista-toggle" id="metricasVistaToggle" style="margin-bottom:0;">
+          <div class="rt-btn active" data-vista="diario">Diario</div>
+          <div class="rt-btn" data-vista="semanal">Semanal</div>
+        </div>
+      </div>
       <div class="chart-panel">
         <div class="chip-row" id="chip-row">
           <!-- Los chips de cada setter se generan en JS desde el array SETTERS (buscá "renderSettersDom") — este bloque queda vacío a propósito. -->
@@ -1900,7 +1908,13 @@
           <div id="vpStatsWrap" style="margin:24px 0 6px;"></div>
 
           <div style="margin-top:26px;">
-            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📈 Tendencia</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">📈 Tendencia</div>
+              <div class="rank-toggle vista-toggle" id="vpVistaToggle" style="margin-bottom:0;">
+                <div class="rt-btn active" data-vista="diario">Diario</div>
+                <div class="rt-btn" data-vista="semanal">Semanal</div>
+              </div>
+            </div>
             <div class="rank-toggle vp-toggle" id="vpMetricToggle">
               <div class="rt-btn active" data-vp-metric="agendas">Agendas</div>
               <div class="rt-btn" data-vp-metric="seguimientos">Seguimientos</div>
@@ -6687,12 +6701,22 @@
 
   const activeSeries = new Set([...SETTER_KEYS, 'todos']);
   let currentMetric = 'agendas';
+  let metricasVista = 'diario';
 
   document.querySelectorAll('.metric-toggle .rt-btn').forEach(btn => {
     btn.addEventListener('click', function(){
       this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       currentMetric = this.textContent.trim().toLowerCase();
+      drawChart();
+    });
+  });
+
+  document.querySelectorAll('#metricasVistaToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      metricasVista = this.dataset.vista;
       drawChart();
     });
   });
@@ -6721,6 +6745,32 @@
   function semanaVieJueAnterior({ inicio }){
     const inicioAnt = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() - 7, 0, 0, 0);
     return rangoSemanaVieJue(inicioAnt);
+  }
+
+  // Agrupa las fechas diarias de setterSeries en bloques Vie-Jue — para
+  // la vista "Semanal" de los gráficos de Métricas y del perfil
+  // individual. Devuelve un array ordenado cronológicamente, una entrada
+  // por cada semana que tenga al menos un día cargado (la semana en
+  // curso puede salir con menos de 7 días sumados, y así se muestra: lo
+  // que va de esa semana hasta ahora).
+  function agruparEnSemanas(dates, campoActual, keys){
+    const semanasMap = new Map();
+    dates.forEach((dStr, i) => {
+      const d = parseDDMMYYYY(dStr);
+      if(!(d instanceof Date) || isNaN(d)) return;
+      const semana = rangoSemanaVieJue(d);
+      const mapKey = semana.inicio.getTime();
+      if(!semanasMap.has(mapKey)) semanasMap.set(mapKey, { inicio: semana.inicio, fin: semana.fin, valores: {} });
+      const entry = semanasMap.get(mapKey);
+      keys.forEach(k => {
+        entry.valores[k] = (entry.valores[k] || 0) + ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0);
+      });
+    });
+    return [...semanasMap.values()].sort((a,b) => a.inicio - b.inicio);
+  }
+  function fmtRangoSemana(semana){
+    const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+    return fmt(semana.inicio) + '-' + fmt(semana.fin);
   }
 
   // Refleja siempre el total DEL EQUIPO para la métrica que está elegida
@@ -6816,15 +6866,26 @@
     svg.classList.remove('fx-refade');
     void svg.offsetWidth;
     svg.classList.add('fx-refade');
-    const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
-    const n = dates.length;
-    if(!n) return;
+    const diasDates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
+    if(!diasDates.length) return;
 
     // OJO: el botón se sigue llamando "Agendas" pero, por pedido, muestra
     // los números de Leads — mismo criterio que Ranking y Fuentes.
     const campoActual = currentMetric === 'agendas' ? 'leads' : currentMetric;
-    const getVal = (k,i) => (setterSeries && setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0;
-    const totals = dates.map((_,i) => SETTER_KEYS.reduce((s,k) => s + getVal(k,i), 0));
+
+    // Vista "Semanal": en vez de un punto por día, un punto por semana
+    // Vie-Jue (misma agrupación que usa la Condición semanal) — para ver
+    // la evolución semana a semana, como pidió el usuario.
+    const esSemanal = metricasVista === 'semanal';
+    const semanas = esSemanal ? agruparEnSemanas(diasDates, campoActual, SETTER_KEYS) : null;
+    const dates = esSemanal ? semanas.map(fmtRangoSemana) : diasDates;
+    const n = esSemanal ? semanas.length : diasDates.length;
+    if(!n) return;
+
+    const getVal = esSemanal
+      ? (k,i) => (semanas[i].valores[k] || 0)
+      : (k,i) => (setterSeries && setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0;
+    const totals = Array.from({length:n}, (_,i) => SETTER_KEYS.reduce((s,k) => s + getVal(k,i), 0));
     const visibleKeys = SETTER_KEYS.filter(k => activeSeries.has(k));
 
     const W = 1000, H = 280, padL = 40, padB = 24, padT = 10;
@@ -6881,9 +6942,13 @@
     // último día cargado, así que va acompañando el avance de la semana
     // hasta terminar posado justo en el jueves cuando llega.
     function idxParaCondicion(semanaActual){
+      if(esSemanal){
+        const idx = semanas.findIndex(s => s.fin.getTime() === semanaActual.fin.getTime());
+        return idx === -1 ? n-1 : idx;
+      }
       const juevesTime = semanaActual.fin.getTime();
       let idx = -1;
-      dates.forEach((dStr,i) => {
+      diasDates.forEach((dStr,i) => {
         const d = parseDDMMYYYY(dStr);
         if(d instanceof Date && !isNaN(d)){
           const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
@@ -6958,17 +7023,20 @@
         return `<div class="tt-row"><span class="tt-name"><span class="cdot" style="background:${colors[k]}"></span>${label}</span><span class="tt-val" style="color:${colors[k]}">${Math.round(getVal(k,i))}</span></div>`;
       }).join('');
       const visibleTotal = visibleKeys.reduce((s,k) => s + getVal(k,i), 0);
-      const diaDate = parseDDMMYYYY(dates[i]);
-      const rCond = (diaDate instanceof Date && !isNaN(diaDate)) ? calcularCondicionSemana(campoActual, diaDate) : null;
+      const refDateCond = esSemanal ? semanas[i].fin : parseDDMMYYYY(dates[i]);
+      const rCond = (refDateCond instanceof Date && !isNaN(refDateCond)) ? calcularCondicionSemana(campoActual, refDateCond) : null;
       const condHtml = rCond ? (() => {
         const info = CONDICIONES_INFO[rCond.condicion];
         const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
         return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCond.semanaActual.inicio)} a ${fmt(rCond.semanaActual.fin)}</span></div>`;
       })() : '';
+      const encabezado = esSemanal
+        ? `<div class="tt-day"><span class="cdot"></span>Semana ${dates[i]}</div>`
+        : `<div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
+           <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(dates[i])}</div>`;
       tooltip.innerHTML = `
         ${condHtml}
-        <div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
-        <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(dates[i])}</div>
+        ${encabezado}
         ${rows}
         <div class="tt-row total"><span class="tt-name">Total</span><span class="tt-val" style="color:var(--green)">${Math.round(visibleTotal)}</span></div>
       `;
@@ -6986,20 +7054,34 @@
   // línea (el color propio del setter), sin chips de selección — solo los
   // botones de métrica. Se separa de drawChart() a propósito para no
   // arriesgar el gráfico principal con este caso especial.
+  let vpVista = 'diario';
+
   function drawVpChart(setterKey){
     const svg = document.getElementById('vpTrendChart');
     if(!svg) return;
     svg.innerHTML = '';
     const s = setterSeries && setterSeries[setterKey];
-    const dates = s ? s.dates : [];
-    const n = dates.length;
+    const diasDates = s ? s.dates : [];
     const tooltip = document.getElementById('vpChartTooltip');
+    if(!diasDates.length){
+      if(tooltip) tooltip.classList.remove('show');
+      return;
+    }
+
+    // Misma vista "Semanal" que el gráfico general de Métricas: un punto
+    // por semana Vie-Jue en vez de uno por día.
+    const esSemanalVp = vpVista === 'semanal';
+    const semanasVp = esSemanalVp ? agruparEnSemanas(diasDates, vpMetricActual, [setterKey]) : null;
+    const dates = esSemanalVp ? semanasVp.map(fmtRangoSemana) : diasDates;
+    const n = esSemanalVp ? semanasVp.length : diasDates.length;
     if(!n){
       if(tooltip) tooltip.classList.remove('show');
       return;
     }
 
-    const getVal = (i) => (s[vpMetricActual] && s[vpMetricActual][i]) || 0;
+    const getVal = esSemanalVp
+      ? (i) => (semanasVp[i].valores[setterKey] || 0)
+      : (i) => (s[vpMetricActual] && s[vpMetricActual][i]) || 0;
     const W = 1000, H = 220, padL = 40, padB = 24, padT = 10;
     const maxVal = Math.max(1, ...dates.map((_,i) => getVal(i)));
 
@@ -7044,15 +7126,19 @@
     // cargado hasta terminar posado justo en el jueves cuando pasa.
     const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey);
     if(rCondVp && n){
-      const juevesTime = rCondVp.semanaActual.fin.getTime();
       let idx = -1;
-      dates.forEach((dStr,i) => {
-        const d = parseDDMMYYYY(dStr);
-        if(d instanceof Date && !isNaN(d)){
-          const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
-          if(t === juevesTime) idx = i;
-        }
-      });
+      if(esSemanalVp){
+        idx = semanasVp.findIndex(sem => sem.fin.getTime() === rCondVp.semanaActual.fin.getTime());
+      } else {
+        const juevesTime = rCondVp.semanaActual.fin.getTime();
+        diasDates.forEach((dStr,i) => {
+          const d = parseDDMMYYYY(dStr);
+          if(d instanceof Date && !isNaN(d)){
+            const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
+            if(t === juevesTime) idx = i;
+          }
+        });
+      }
       if(idx === -1) idx = n-1;
       const condColor = CONDICIONES_INFO[rCondVp.condicion].color;
       const [px, py] = pts[idx];
@@ -7079,17 +7165,20 @@
       const showTip = () => {
         if(!tooltip) return;
         const val = vpMetricActual === 'cash' ? fmtMoney(getVal(i)) : fmtInt(getVal(i));
-        const diaDateVp = parseDDMMYYYY(dates[i]);
-        const rCondVpTip = (diaDateVp instanceof Date && !isNaN(diaDateVp)) ? calcularCondicionSemana(vpMetricActual, diaDateVp, setterKey) : null;
+        const refDateCondVp = esSemanalVp ? semanasVp[i].fin : parseDDMMYYYY(dates[i]);
+        const rCondVpTip = (refDateCondVp instanceof Date && !isNaN(refDateCondVp)) ? calcularCondicionSemana(vpMetricActual, refDateCondVp, setterKey) : null;
         const condHtmlVp = rCondVpTip ? (() => {
           const info = CONDICIONES_INFO[rCondVpTip.condicion];
           const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
           return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCondVpTip.semanaActual.inicio)} a ${fmt(rCondVpTip.semanaActual.fin)}</span></div>`;
         })() : '';
+        const encabezadoVp = esSemanalVp
+          ? `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Semana ${dates[i]}</div>`
+          : `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
+             <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>`;
         tooltip.innerHTML = `
           ${condHtmlVp}
-          <div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
-          <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>
+          ${encabezadoVp}
           <div class="tt-row"><span class="tt-name">${vpMetricActual.charAt(0).toUpperCase()+vpMetricActual.slice(1)}</span><span class="tt-val" style="color:${color}">${val}</span></div>
         `;
         const wrapWidth = svg.parentElement.clientWidth;
@@ -7112,6 +7201,15 @@
       this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       vpMetricActual = this.dataset.vpMetric;
+      if(vpCurrentSetter) drawVpChart(vpCurrentSetter);
+    });
+  });
+
+  document.querySelectorAll('#vpVistaToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      this.parentElement.querySelectorAll('.rt-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      vpVista = this.dataset.vista;
       if(vpCurrentSetter) drawVpChart(vpCurrentSetter);
     });
   });
