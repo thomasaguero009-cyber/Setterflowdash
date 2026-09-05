@@ -509,15 +509,15 @@
   .estrellas-pie-legend b{ color:var(--text); }
 
   /* CONDICIÓN SEMANAL (estadísticas Vie-Jue, estilo "Condiciones" de
-     administración por estadísticas) */
-  .condicion-badge{
-    display:inline-flex; align-items:center; gap:8px; padding:8px 14px;
-    border-radius:999px; border:1px solid var(--border); background:var(--card);
-    font-size:12.5px; font-weight:700; margin: 4px 0 16px; cursor:help;
+     administración por estadísticas) — badge chiquito dentro de una
+     tracker-card, ej. "Agendas acumuladas". */
+  .tc-condicion{
+    align-items:center; gap:6px; padding:4px 10px; margin-top:10px;
+    border-radius:999px; border:1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
+    font-size:11.5px; font-weight:700; cursor:help; width:fit-content;
   }
-  .condicion-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
-  .condicion-badge .cb-label{ color: var(--text); }
-  .condicion-badge .cb-sub{ color: var(--text-dim); font-weight:600; }
+  .condicion-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
+  .tc-condicion .cb-label{ color: currentColor; }
 
   /* NAV RÁPIDA (arriba del Tracker, saltos a cada sección de Inicio) */
   html{ scroll-behavior:smooth; }
@@ -1618,6 +1618,7 @@
           <div class="tl">Agendas acumuladas</div>
           <div class="tv" id="tk-agendas-value">1.142</div>
           <div class="tf">Líder: <b id="tk-agendas-leader">Flor</b> · <span id="tk-agendas-leader-val">732</span></div>
+          <div class="tc-condicion" id="tk-agendas-condicion" style="display:none;"></div>
         </div>
         <div class="tracker-card cash">
           <div class="tl">Cash acumulado</div>
@@ -1687,7 +1688,6 @@
           <div class="rt-btn">Cash</div>
           <div class="rt-btn">Horas</div>
         </div>
-        <div class="condicion-badge" id="condicionBadge" style="display:none;"></div>
         <div class="chart-wrap">
           <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
@@ -5050,6 +5050,8 @@
     document.getElementById('tk-seg-value').textContent = fmtInt(SETTER_KEYS.reduce((s,k)=>s+totals[k].seguimientos,0));
     document.getElementById('tk-seg-leader').textContent = nameCap(lSeg);
     document.getElementById('tk-seg-leader-val').textContent = fmtInt(totals[lSeg].seguimientos);
+
+    renderCondicionTrackerAgendas();
   }
 
   // ===== "Reveal on scroll": los gráficos arrancan en su estado inicial
@@ -6725,9 +6727,8 @@
   // en el toggle (Agendas/Seguimientos/Cash/Horas) — no cambia si filtrás
   // por chips de setter, porque la condición es del negocio, no de una
   // sola persona viendo el gráfico filtrado.
-  function calcularCondicionSemana(){
+  function calcularCondicionSemana(campoActual){
     const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
-    const campoActual = currentMetric === 'agendas' ? 'leads' : currentMetric;
     if(!dates.length) return null;
 
     let refDate = null;
@@ -6790,17 +6791,24 @@
     return { condicion, curTotal, prevTotal, semanaActual };
   }
 
-  function renderCondicionBadge(){
-    const el = document.getElementById('condicionBadge');
-    if(!el) return;
-    const r = calcularCondicionSemana();
-    if(!r){ el.style.display = 'none'; return; }
+  // Chiquito, para colgar dentro de una tracker-card (a diferencia del
+  // badge de texto, que el usuario pidió sacar de arriba del gráfico y
+  // poner acá — ver renderCondicionTrackerAgendas).
+  function renderCondicionEnCard(elId, campoActual){
+    const el = document.getElementById(elId);
+    if(!el) return null;
+    const r = calcularCondicionSemana(campoActual);
+    if(!r){ el.style.display = 'none'; return null; }
     const info = CONDICIONES_INFO[r.condicion];
     el.style.display = 'inline-flex';
     el.style.color = info.color;
     el.title = `${info.label}: ${info.formula}\nEsta semana (${fmtFechaCorta(r.semanaActual.inicio)}-${fmtFechaCorta(r.semanaActual.fin)}): ${fmtInt(r.curTotal)} · semana pasada: ${fmtInt(r.prevTotal)}`;
-    el.innerHTML = `<span class="condicion-dot" style="background:${info.color};"></span><span class="cb-label">${info.label}</span><span class="cb-sub">— esta semana (vie-jue)</span>`;
-    return info.color;
+    el.innerHTML = `<span class="condicion-dot" style="background:${info.color};"></span><span class="cb-label">${info.label}</span>`;
+    return { color: info.color, semanaActual: r.semanaActual };
+  }
+
+  function renderCondicionTrackerAgendas(){
+    renderCondicionEnCard('tk-agendas-condicion', 'leads');
   }
 
   function drawChart(){
@@ -6889,20 +6897,31 @@
     });
 
     // Punto de "Condición semanal" (Peligro/Emergencia/Normal/Afluencia/
-    // Inexistencia — ver calcularCondicionSemana): un punto grande de
-    // color sobre el total del equipo en el último día cargado, así la
-    // condición se ve directo en el gráfico y no solo en el badge de
-    // arriba.
-    const condicionColor = renderCondicionBadge();
-    if(condicionColor && n){
-      const lastX = xAt(n-1), lastY = yAt(totals[n-1]);
+    // Inexistencia — ver calcularCondicionSemana): se ancla SIEMPRE en el
+    // viernes en que arranca la semana actual (no en el último día
+    // cargado, que va cambiando día a día) — la condición es de la
+    // semana entera, así que el punto marca dónde empieza esa semana.
+    const rCondChart = calcularCondicionSemana(campoActual);
+    const condicionInfo = rCondChart ? { color: CONDICIONES_INFO[rCondChart.condicion].color, semanaActual: rCondChart.semanaActual } : null;
+    if(condicionInfo && n){
+      const viernesTime = condicionInfo.semanaActual.inicio.getTime();
+      let viernesIdx = dates.findIndex(dStr => {
+        const d = parseDDMMYYYY(dStr);
+        return d instanceof Date && !isNaN(d) && d.getTime() === viernesTime;
+      });
+      // El viernes de esta semana puede caer en el mes anterior (si el mes
+      // activo recién arranca a mitad de semana) y no estar cargado acá —
+      // en ese caso se ancla al primer día disponible, lo más temprano
+      // posible dentro de lo que hay.
+      if(viernesIdx === -1) viernesIdx = 0;
+      const px = xAt(viernesIdx), py = yAt(totals[viernesIdx]);
       const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      halo.setAttribute('cx', lastX); halo.setAttribute('cy', lastY); halo.setAttribute('r','9');
-      halo.setAttribute('fill', condicionColor); halo.setAttribute('opacity','0.25');
+      halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','9');
+      halo.setAttribute('fill', condicionInfo.color); halo.setAttribute('opacity','0.25');
       svg.appendChild(halo);
       const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      punto.setAttribute('cx', lastX); punto.setAttribute('cy', lastY); punto.setAttribute('r','5');
-      punto.setAttribute('fill', condicionColor); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
+      punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','5');
+      punto.setAttribute('fill', condicionInfo.color); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
       svg.appendChild(punto);
     }
 
