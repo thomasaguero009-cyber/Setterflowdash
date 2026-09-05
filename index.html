@@ -6738,14 +6738,13 @@
     const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
     if(!dates.length) return null;
 
-    let refDate = refDateOverride || null;
-    if(!refDate){
-      dates.forEach(dStr => {
-        const d = parseDDMMYYYY(dStr);
-        if(d instanceof Date && !isNaN(d) && (!refDate || d > refDate)) refDate = d;
-      });
-    }
-    if(!refDate) return null;
+    let latestLoadedDate = null;
+    dates.forEach(dStr => {
+      const d = parseDDMMYYYY(dStr);
+      if(d instanceof Date && !isNaN(d) && (!latestLoadedDate || d > latestLoadedDate)) latestLoadedDate = d;
+    });
+    if(!latestLoadedDate) return null;
+    const refDate = refDateOverride || latestLoadedDate;
 
     const keysAContar = setterKey ? [setterKey] : SETTER_KEYS;
     function totalEnRango(inicio, fin){
@@ -6759,7 +6758,16 @@
       return total;
     }
 
-    const semanaActual = rangoSemanaVieJue(refDate);
+    // La condición SIEMPRE se evalúa sobre la última semana Vie-Jue ya
+    // CERRADA (su jueves ya pasó y está cargado) — nunca sobre una semana
+    // todavía en curso, que con 1 o 2 días de datos daría lecturas
+    // engañosas (ej. "Peligro" el mismo viernes que arranca la semana
+    // nueva, comparado contra una semana anterior completa de 7 días).
+    let semanaActual = rangoSemanaVieJue(refDate);
+    const finDelDia = new Date(semanaActual.fin.getFullYear(), semanaActual.fin.getMonth(), semanaActual.fin.getDate(), 0, 0, 0);
+    if(finDelDia > latestLoadedDate){
+      semanaActual = semanaVieJueAnterior(semanaActual);
+    }
     const semanaPasada = semanaVieJueAnterior(semanaActual);
     const semanaAntePasada = semanaVieJueAnterior(semanaPasada);
 
