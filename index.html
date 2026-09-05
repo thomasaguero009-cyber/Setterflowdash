@@ -642,8 +642,6 @@
   .chart-tooltip .condicion-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
   .chart-tooltip .condicion-total-row{ font-size:12px; color:var(--text-dim); font-weight:600; margin-top:6px; }
   .chart-tooltip .condicion-total-row b{ font-weight:800; }
-  .chart-tooltip .condicion-encurso-row{ border-bottom:1px dashed var(--border); margin-bottom:10px; padding-bottom:10px; font-size:12.5px; color:var(--text-dim); font-weight:700; }
-  .chart-tooltip .condicion-encurso-row b{ color:var(--text); font-weight:800; }
   .chart-tooltip .tt-day{ font-size:14px; font-weight:800; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
   .chart-tooltip .tt-day .cdot{ width:8px; height:8px; border-radius:50%; background:var(--green); }
   .chart-tooltip .tt-row{ display:flex; align-items:center; justify-content:space-between; gap:18px; padding: 4px 0; font-size:13px; }
@@ -6812,30 +6810,6 @@
     return fmt(semana.inicio) + '-' + fmt(semana.fin);
   }
 
-  // Total de la semana Vie-Jue que CONTIENE refDate — a diferencia de
-  // calcularCondicionSemana(), acá NO se hace rollback a la semana
-  // anterior si todavía está en curso: es justo para mostrar "cuánto
-  // lleva acumulado" la semana que está pasando ahora mismo, sin
-  // clasificarla todavía (no tiene sentido juzgar Normal/Peligro/etc con
-  // 1 o 2 días de datos).
-  function totalSemanaQueContiene(refDate, campoActual, setterKey, seriesObj){
-    seriesObj = seriesObj || setterSeriesCompleto || setterSeries;
-    const keysAContar = setterKey ? [setterKey] : SETTER_KEYS;
-    const semana = rangoSemanaVieJue(refDate);
-    let total = 0;
-    keysAContar.forEach(k => {
-      const serie = seriesObj[k];
-      if(!serie) return;
-      serie.dates.forEach((dStr, i) => {
-        const d = parseDDMMYYYY(dStr);
-        if(d instanceof Date && !isNaN(d) && d >= semana.inicio && d <= semana.fin){
-          total += (serie[campoActual] && serie[campoActual][i]) || 0;
-        }
-      });
-    });
-    return { semana, total };
-  }
-
   // Refleja siempre el total DEL EQUIPO para la métrica que está elegida
   // en el toggle (Agendas/Seguimientos/Cash/Horas) — no cambia si filtrás
   // por chips de setter, porque la condición es del negocio, no de una
@@ -6886,22 +6860,29 @@
       return total;
     }
 
-    // La condición SIEMPRE se evalúa sobre la última semana Vie-Jue ya
-    // CERRADA (su jueves ya pasó y está cargado) — nunca sobre una semana
-    // todavía en curso, que con 1 o 2 días de datos daría lecturas
-    // engañosas (ej. "Peligro" el mismo viernes que arranca la semana
-    // nueva, comparado contra una semana anterior completa de 7 días).
-    let semanaActual = rangoSemanaVieJue(refDate);
-    const finDelDia = new Date(semanaActual.fin.getFullYear(), semanaActual.fin.getMonth(), semanaActual.fin.getDate(), 0, 0, 0);
-    if(finDelDia > latestLoadedDate){
-      semanaActual = semanaVieJueAnterior(semanaActual);
+    // La condición es SIEMPRE sobre la semana que contiene refDate (la
+    // que está pasando ahora, si refDate es hoy) — pero si esa semana
+    // todavía está en curso, comparar su total contra una semana pasada
+    // COMPLETA sería injusto (dá "Peligro" el mismo viernes que arranca
+    // la semana nueva, solo por tener 1 día acumulado contra 7). Por eso
+    // se compara "lo que va de esta semana" contra EL MISMO tramo de
+    // días de las semanas anteriores — mismo corte, comparación pareja.
+    const semanaActual = rangoSemanaVieJue(refDate);
+    const refDateDia = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate(), 0, 0, 0);
+    const juevesActualDia = new Date(semanaActual.fin.getFullYear(), semanaActual.fin.getMonth(), semanaActual.fin.getDate(), 0, 0, 0);
+    const semanaYaCerro = juevesActualDia <= latestLoadedDate;
+    const diasTranscurridos = semanaYaCerro ? 7 : Math.round((refDateDia - semanaActual.inicio) / 86400000) + 1;
+
+    function finAlCorte(inicioSemana){
+      return new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + diasTranscurridos - 1, 23, 59, 59);
     }
+
     const semanaPasada = semanaVieJueAnterior(semanaActual);
     const semanaAntePasada = semanaVieJueAnterior(semanaPasada);
 
-    const curTotal = totalEnRango(semanaActual.inicio, semanaActual.fin);
-    const prevTotal = totalEnRango(semanaPasada.inicio, semanaPasada.fin);
-    const prevPrevTotal = totalEnRango(semanaAntePasada.inicio, semanaAntePasada.fin);
+    const curTotal = totalEnRango(semanaActual.inicio, finAlCorte(semanaActual.inicio));
+    const prevTotal = totalEnRango(semanaPasada.inicio, finAlCorte(semanaPasada.inicio));
+    const prevPrevTotal = totalEnRango(semanaAntePasada.inicio, finAlCorte(semanaAntePasada.inicio));
 
     // Techo más alto entre las semanas Vie-Jue completas anteriores a la
     // actual, DENTRO de lo que hay cargado (el mes activo) — sirve para
@@ -7118,24 +7099,7 @@
         ? `<div class="tt-day"><span class="cdot"></span>Semana ${dates[i]}</div>`
         : `<div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
            <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(dates[i])}</div>`;
-      // Si el día que se está mirando cae en una semana TODAVÍA EN CURSO
-      // (distinta de la última semana cerrada que ya se muestra arriba
-      // como "Total semanal"), se agrega cuánto lleva acumulado esa
-      // semana en curso hasta ahora — sin clasificarla (Normal/Peligro/
-      // etc.), porque juzgar una semana a medio terminar da lecturas
-      // falsas.
-      let semanaEnCursoHtml = '';
-      if(!esSemanal && refDateCond instanceof Date && !isNaN(refDateCond)){
-        const semanaPropia = rangoSemanaVieJue(refDateCond);
-        if(!rCond || semanaPropia.fin.getTime() !== rCond.semanaActual.fin.getTime()){
-          const { semana: semanaEC, total: totalEC } = totalSemanaQueContiene(refDateCond, campoActual, null, setterSeriesCompleto);
-          const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-          const totalECFmt = campoActual === 'cash' ? fmtMoney(totalEC) : fmtInt(totalEC);
-          semanaEnCursoHtml = `<div class="condicion-encurso-row">Semana en curso (${fmt(semanaEC.inicio)} a ${fmt(semanaEC.fin)}) <b>${totalECFmt}</b></div>`;
-        }
-      }
       tooltip.innerHTML = `
-        ${semanaEnCursoHtml}
         ${condHtml}
         ${encabezado}
         ${rows}
@@ -7282,18 +7246,7 @@
           ? `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Semana ${dates[i]}</div>`
           : `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
              <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>`;
-        let semanaEnCursoHtmlVp = '';
-        if(!esSemanalVp && refDateCondVp instanceof Date && !isNaN(refDateCondVp)){
-          const semanaPropiaVp = rangoSemanaVieJue(refDateCondVp);
-          if(!rCondVpTip || semanaPropiaVp.fin.getTime() !== rCondVpTip.semanaActual.fin.getTime()){
-            const { semana: semanaECVp, total: totalECVp } = totalSemanaQueContiene(refDateCondVp, vpMetricActual, setterKey, setterSeriesCompleto);
-            const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-            const totalECVpFmt = vpMetricActual === 'cash' ? fmtMoney(totalECVp) : fmtInt(totalECVp);
-            semanaEnCursoHtmlVp = `<div class="condicion-encurso-row">Semana en curso (${fmt(semanaECVp.inicio)} a ${fmt(semanaECVp.fin)}) <b>${totalECVpFmt}</b></div>`;
-          }
-        }
         tooltip.innerHTML = `
-          ${semanaEnCursoHtmlVp}
           ${condHtmlVp}
           ${encabezadoVp}
           <div class="tt-row"><span class="tt-name">${vpMetricActual.charAt(0).toUpperCase()+vpMetricActual.slice(1)}</span><span class="tt-val" style="color:${color}">${val}</span></div>
