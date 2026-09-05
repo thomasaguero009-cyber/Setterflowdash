@@ -637,8 +637,11 @@
     z-index: 20;
   }
   .chart-tooltip.show{ opacity:1; transform: translateY(0); }
-  .chart-tooltip .condicion-dot-row{ display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:800; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .chart-tooltip .condicion-block{ margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .chart-tooltip .condicion-dot-row{ display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:800; }
   .chart-tooltip .condicion-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
+  .chart-tooltip .condicion-total-row{ font-size:12px; color:var(--text-dim); font-weight:600; margin-top:6px; }
+  .chart-tooltip .condicion-total-row b{ font-weight:800; }
   .chart-tooltip .tt-day{ font-size:14px; font-weight:800; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
   .chart-tooltip .tt-day .cdot{ width:8px; height:8px; border-radius:50%; background:var(--green); }
   .chart-tooltip .tt-row{ display:flex; align-items:center; justify-content:space-between; gap:18px; padding: 4px 0; font-size:13px; }
@@ -7063,7 +7066,11 @@
       const condHtml = rCond ? (() => {
         const info = CONDICIONES_INFO[rCond.condicion];
         const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-        return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCond.semanaActual.inicio)} a ${fmt(rCond.semanaActual.fin)}</span></div>`;
+        const totalSemanalFmt = campoActual === 'cash' ? fmtMoney(rCond.curTotal) : fmtInt(rCond.curTotal);
+        return `<div class="condicion-block">
+          <div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCond.semanaActual.inicio)} a ${fmt(rCond.semanaActual.fin)}</span></div>
+          <div class="condicion-total-row">Total semanal <b style="color:${info.color};">${totalSemanalFmt}</b></div>
+        </div>`;
       })() : '';
       const encabezado = esSemanal
         ? `<div class="tt-day"><span class="cdot"></span>Semana ${dates[i]}</div>`
@@ -7208,7 +7215,11 @@
         const condHtmlVp = rCondVpTip ? (() => {
           const info = CONDICIONES_INFO[rCondVpTip.condicion];
           const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-          return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCondVpTip.semanaActual.inicio)} a ${fmt(rCondVpTip.semanaActual.fin)}</span></div>`;
+          const totalSemanalFmt = vpMetricActual === 'cash' ? fmtMoney(rCondVpTip.curTotal) : fmtInt(rCondVpTip.curTotal);
+          return `<div class="condicion-block">
+            <div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCondVpTip.semanaActual.inicio)} a ${fmt(rCondVpTip.semanaActual.fin)}</span></div>
+            <div class="condicion-total-row">Total semanal <b style="color:${info.color};">${totalSemanalFmt}</b></div>
+          </div>`;
         })() : '';
         const encabezadoVp = esSemanalVp
           ? `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Semana ${dates[i]}</div>`
