@@ -508,6 +508,18 @@
   .estrellas-pie-legend .epl-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .estrellas-pie-legend b{ color:var(--text); }
 
+  /* NAV RÁPIDA (arriba del Tracker, saltos a cada sección de Inicio) */
+  html{ scroll-behavior:smooth; }
+  .quick-nav-row{ display:flex; flex-wrap:wrap; gap:8px; margin: 0 0 22px; }
+  .quick-nav-btn{
+    padding: 8px 16px; border-radius: 999px; border:1px solid var(--border);
+    background: var(--card); color: var(--text-dim); font-weight:700; font-size:12.5px;
+    cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+    transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
+  }
+  .quick-nav-btn:hover{ background: var(--card-hover); color:var(--text); border-color: var(--purple); }
+  .quick-nav-btn:active{ transform: scale(0.96); }
+
   /* RANKING */
   .rank-toggle{ display:flex; gap:8px; margin-bottom:18px; }
   .rt-btn{
@@ -1578,6 +1590,16 @@
       <div id="reminderBanner" class="reminder-banner" style="display:none;"></div>
       <div id="insightBanner" class="insight-banner" style="display:none;"></div>
 
+      <div class="quick-nav-row">
+        <a href="#nav-ranking" class="quick-nav-btn">🏆 Ranking</a>
+        <a href="#nav-metricas" class="quick-nav-btn">📈 Métricas</a>
+        <a href="#nav-ventas" class="quick-nav-btn">💵 Ventas</a>
+        <a href="#nav-estrellas" class="quick-nav-btn">⭐ Estrellas</a>
+        <a href="#nav-fuentes" class="quick-nav-btn">📡 Fuentes</a>
+        <a href="#nav-matematica" class="quick-nav-btn">🎯 Matemática del éxito</a>
+        <a href="#nav-setters" class="quick-nav-btn">⚡ Setters</a>
+      </div>
+
       <div class="section-label">📌 Tracker acumulado del mes</div>
       <div id="tk-range-debug" style="display:none;"></div>
       <div class="tracker-grid">
@@ -1598,7 +1620,7 @@
         </div>
       </div>
 
-      <div class="section-label">🏆 Ranking</div>
+      <div class="section-label" id="nav-ranking">🏆 Ranking</div>
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div class="rank-toggle" id="rankToggle" style="margin-bottom:18px;">
           <div class="rt-btn active" data-rank="mensual">Mensual</div>
@@ -1643,7 +1665,7 @@
         </div>
       </div>
 
-      <div class="section-label">📈 Métricas - Setters</div>
+      <div class="section-label" id="nav-metricas">📈 Métricas - Setters</div>
       <div class="chart-panel">
         <div class="chip-row" id="chip-row">
           <!-- Los chips de cada setter se generan en JS desde el array SETTERS (buscá "renderSettersDom") — este bloque queda vacío a propósito. -->
@@ -1661,7 +1683,7 @@
         <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
-      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div class="section-label" id="nav-ventas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <span>💵 Ventas</span>
         <div style="position:relative;">
           <button type="button" id="ventasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;text-transform:none;letter-spacing:normal;">
@@ -1719,7 +1741,7 @@
         <div class="data-status" id="ventasStatus">Cargando datos del Google Sheet…</div>
       </div>
 
-      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div class="section-label" id="nav-estrellas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <span>⭐ Calidad de Agendas y Ventas (clasificación de Hyros)</span>
         <div style="position:relative;">
           <button type="button" id="estrellasCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;text-transform:none;letter-spacing:normal;">
@@ -1771,7 +1793,7 @@
       </div>
       <div class="data-status">⭐ = calidad del lead que HighLevel/Hyros le asigna a cada llamada o venta al agendarla (1 a 5, más estrellas = mejor calificado). Si Hyros no le puso ninguna etiqueta, cuenta como 1★ (no se descarta). El desglose por persona está en "Ver perfil" de cada setter.</div>
 
-      <div class="section-label">📡 Fuentes</div>
+      <div class="section-label" id="nav-fuentes">📡 Fuentes</div>
       <div class="chart-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
           <div class="rank-toggle" id="fuenteToggle" style="margin-bottom:0;">
@@ -1803,7 +1825,7 @@
         <div id="fuentePanel"></div>
       </div>
 
-      <div class="section-label">🎯 Matemática del éxito — Meta del mes: $50.000</div>
+      <div class="section-label" id="nav-matematica">🎯 Matemática del éxito — Meta del mes: $50.000</div>
       <div class="chart-panel">
         <div class="tracker-grid">
           <div class="tracker-card agendas">
@@ -1849,7 +1871,7 @@
         <div class="perf-grid" id="me-setters-grid"></div>
       </div>
 
-      <div class="section-label">⚡ Performance individual (Ayer)</div>
+      <div class="section-label" id="nav-setters">⚡ Performance individual (Ayer)</div>
       <div class="perf-grid" id="perf-grid">
         <!-- Tarjetas por setter generadas en JS desde SETTERS (ver "renderSettersDom") — los valores de acá se pisan solos apenas carga updatePerformanceCards(). -->
       </div>
