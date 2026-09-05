@@ -6730,7 +6730,11 @@
   // refDateOverride: si se pasa, calcula la condición de LA SEMANA QUE
   // CONTIENE esa fecha (ej. el día que se está mirando en el tooltip del
   // gráfico) en vez de la semana más reciente con datos.
-  function calcularCondicionSemana(campoActual, refDateOverride){
+  // setterKey: si se pasa, calcula la condición de ESE setter en
+  // particular (usa solo su propia serie); si se omite, es la del equipo
+  // completo (suma de todos los SETTER_KEYS) — así se puede mostrar tanto
+  // en el total como en cada línea individual del gráfico.
+  function calcularCondicionSemana(campoActual, refDateOverride, setterKey){
     const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
     if(!dates.length) return null;
 
@@ -6743,12 +6747,13 @@
     }
     if(!refDate) return null;
 
+    const keysAContar = setterKey ? [setterKey] : SETTER_KEYS;
     function totalEnRango(inicio, fin){
       let total = 0;
       dates.forEach((dStr, i) => {
         const d = parseDDMMYYYY(dStr);
         if(d instanceof Date && !isNaN(d) && d >= inicio && d <= fin){
-          SETTER_KEYS.forEach(k => { total += (setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0; });
+          keysAContar.forEach(k => { total += (setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0; });
         }
       });
       return total;
@@ -6778,7 +6783,7 @@
       }
     }
 
-    const huboDatosAlgunaVez = dates.some((dStr,i) => SETTER_KEYS.some(k => ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0) > 0));
+    const huboDatosAlgunaVez = dates.some((dStr,i) => keysAContar.some(k => ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0) > 0));
 
     let condicion;
     if(!huboDatosAlgunaVez){
@@ -6861,6 +6866,25 @@
     const seriesToPlot = [...visibleKeys];
     if(activeSeries.has('todos')) seriesToPlot.push('todos');
 
+    // Índice del punto donde se ancla el marcador de "Condición semanal"
+    // de una serie: el jueves 23:59 en que cierra esa semana (recién ahí
+    // el número queda firme y no se puede seguir cargando/corrigiendo) —
+    // si ese jueves todavía no llegó (semana en curso), se ancla al
+    // último día cargado, así que va acompañando el avance de la semana
+    // hasta terminar posado justo en el jueves cuando llega.
+    function idxParaCondicion(semanaActual){
+      const juevesTime = semanaActual.fin.getTime();
+      let idx = -1;
+      dates.forEach((dStr,i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(d instanceof Date && !isNaN(d)){
+          const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
+          if(t === juevesTime) idx = i;
+        }
+      });
+      return idx === -1 ? n-1 : idx;
+    }
+
     seriesToPlot.forEach(key => {
       const vals = key === 'todos' ? totals : dates.map((_,i)=>getVal(key,i));
       const pts = vals.map((v,i) => [xAt(i), yAt(v)]);
@@ -6879,36 +6903,26 @@
         c.setAttribute('fill', '#08080d'); c.setAttribute('stroke', colors[key]); c.setAttribute('stroke-width','1.5');
         svg.appendChild(c);
       });
-    });
 
-    // Punto de "Condición semanal" (Peligro/Emergencia/Normal/Afluencia/
-    // Inexistencia — ver calcularCondicionSemana): se ancla SIEMPRE en el
-    // viernes en que arranca la semana actual (no en el último día
-    // cargado, que va cambiando día a día) — la condición es de la
-    // semana entera, así que el punto marca dónde empieza esa semana.
-    const rCondChart = calcularCondicionSemana(campoActual);
-    const condicionInfo = rCondChart ? { color: CONDICIONES_INFO[rCondChart.condicion].color, semanaActual: rCondChart.semanaActual } : null;
-    if(condicionInfo && n){
-      const viernesTime = condicionInfo.semanaActual.inicio.getTime();
-      let viernesIdx = dates.findIndex(dStr => {
-        const d = parseDDMMYYYY(dStr);
-        return d instanceof Date && !isNaN(d) && d.getTime() === viernesTime;
-      });
-      // El viernes de esta semana puede caer en el mes anterior (si el mes
-      // activo recién arranca a mitad de semana) y no estar cargado acá —
-      // en ese caso se ancla al primer día disponible, lo más temprano
-      // posible dentro de lo que hay.
-      if(viernesIdx === -1) viernesIdx = 0;
-      const px = xAt(viernesIdx), py = yAt(totals[viernesIdx]);
-      const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','9');
-      halo.setAttribute('fill', condicionInfo.color); halo.setAttribute('opacity','0.25');
-      svg.appendChild(halo);
-      const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','5');
-      punto.setAttribute('fill', condicionInfo.color); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
-      svg.appendChild(punto);
-    }
+      // Punto de "Condición semanal" (Peligro/Emergencia/Normal/Afluencia/
+      // Inexistencia — ver calcularCondicionSemana) de ESTA línea: el
+      // equipo si key==='todos', o el setter individual si no — así cada
+      // línea muestra su propia condición, no solo la del total.
+      const rCond = calcularCondicionSemana(campoActual, null, key === 'todos' ? null : key);
+      if(rCond && n){
+        const idx = idxParaCondicion(rCond.semanaActual);
+        const color = CONDICIONES_INFO[rCond.condicion].color;
+        const [px, py] = pts[idx];
+        const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','9');
+        halo.setAttribute('fill', color); halo.setAttribute('opacity','0.25');
+        svg.appendChild(halo);
+        const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','5');
+        punto.setAttribute('fill', color); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
+        svg.appendChild(punto);
+      }
+    });
 
     const tooltip = document.getElementById('chartTooltip');
     for(let i=0;i<n;i++){
