@@ -2525,6 +2525,11 @@
   // (ej. al restaurar sesión o cargar Mi Perfil) nunca choque con un
   // "Cannot access before initialization" (temporal dead zone de let/const).
   let setterSeries = {};   // { thomi: {dates:[], seguimientos:[], cash:[], horas:[], agendas:[]}, ... }
+  // Igual que setterSeries pero SIN el filtro de mes activo — todos los
+  // días que haya en la hoja, de cualquier mes. Se usa solo para la vista
+  // "Semanal" de Métricas, que necesita ver la tendencia completa desde
+  // que hay datos cargados (no solo el mes que se está mirando).
+  let setterSeriesCompleto = {};
   let dashboardTotals = {}; // { agendas: {thomi,flor,valeria,franco}, cash:{...}, seguimientos:{...} }
   let recuentoAyer = {};    // { thomi: {seguimientos,cash,horas,agendas,conversion}, ..., fecha: "01/07/2026" }
   let cashHistoricoPorSetter = Object.fromEntries(SETTER_KEYS.map(k => [k, 0])); // suma TOTAL de todos los meses (fila "TOTALES/PROMEDIOS"), para "Matemática del éxito"
@@ -4416,7 +4421,11 @@
   let cohetazoAnimado = false;
 
   // ---- Parse an individual setter sheet (long format) ----
-  function parseSetterSheet(text){
+  // sinFiltroDeMes: si es true, trae TODOS los días de la hoja (no solo
+  // el mes activo) — se usa para la vista "Semanal" de Métricas, que
+  // necesita ver semanas de meses anteriores para mostrar la tendencia
+  // completa desde que hay datos cargados.
+  function parseSetterSheet(text, sinFiltroDeMes){
     const rows = parseCSV(text);
     let headerRow = -1;
     for(let i=0;i<rows.length;i++){
@@ -4478,7 +4487,7 @@
       const parts = fecha.trim().split('/');
       const mm = parts[1].padStart(2,'0');
       const yyyy = parts[2].length === 2 ? '20'+parts[2] : parts[2];
-      if(mm !== ACTIVE_MONTH_MM || yyyy !== ACTIVE_MONTH_YYYY) continue; // solo el mes activo
+      if(!sinFiltroDeMes && (mm !== ACTIVE_MONTH_MM || yyyy !== ACTIVE_MONTH_YYYY)) continue; // solo el mes activo
       out.dates.push(fecha.trim());
       out.seguimientos.push(parseNum(r[idx.seg]));
       out.cash.push(parseNum(r[idx.cash]));
@@ -4656,7 +4665,7 @@
 
     try{
       const texts = await Promise.all(SETTER_SHEET_URLS.map(safeFetchText));
-      const parsedList = texts.map(parseSetterSheet).filter(Boolean);
+      const parsedList = texts.map(t => parseSetterSheet(t)).filter(Boolean);
       const bySetter = {};
       parsedList.forEach(p => { bySetter[p.key] = p.series; cashHistoricoPorSetter[p.key] = p.cashHistorico || 0; });
       setterOk = Object.keys(bySetter).length > 0;
@@ -4673,6 +4682,17 @@
           if(!bySetter[k]) cashHistoricoPorSetter[k] = 0;
         });
         trimTrailingEmptyDays(setterSeries);
+
+        // Misma lógica pero sin filtrar por mes — para la vista Semanal.
+        const parsedListCompleto = texts.map(t => parseSetterSheet(t, true)).filter(Boolean);
+        const bySetterCompleto = {};
+        parsedListCompleto.forEach(p => { bySetterCompleto[p.key] = p.series; });
+        if(Object.keys(bySetterCompleto).length){
+          const fechasReferenciaCompleto = Object.values(bySetterCompleto)[0].dates;
+          SETTER_KEYS.forEach(k => {
+            setterSeriesCompleto[k] = bySetterCompleto[k] || buildZeroSeries(fechasReferenciaCompleto);
+          });
+        }
       }
     } catch(err){ /* keep demo */ }
 
@@ -4681,7 +4701,7 @@
     // completa — pensada para poder abrir este archivo sin conexión al
     // Sheet real y ver igual un preview con onda, no para el caso normal
     // de "falta uno".
-    if(!setterOk) buildDemoData();
+    if(!setterOk){ buildDemoData(); setterSeriesCompleto = setterSeries; }
 
     try{
       const recText = await safeFetchText(RECUENTO_URL);
@@ -6753,7 +6773,8 @@
   // por cada semana que tenga al menos un día cargado (la semana en
   // curso puede salir con menos de 7 días sumados, y así se muestra: lo
   // que va de esa semana hasta ahora).
-  function agruparEnSemanas(dates, campoActual, keys){
+  function agruparEnSemanas(dates, campoActual, keys, seriesObj){
+    seriesObj = seriesObj || setterSeries;
     const semanasMap = new Map();
     dates.forEach((dStr, i) => {
       const d = parseDDMMYYYY(dStr);
@@ -6763,7 +6784,7 @@
       if(!semanasMap.has(mapKey)) semanasMap.set(mapKey, { inicio: semana.inicio, fin: semana.fin, valores: {} });
       const entry = semanasMap.get(mapKey);
       keys.forEach(k => {
-        entry.valores[k] = (entry.valores[k] || 0) + ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0);
+        entry.valores[k] = (entry.valores[k] || 0) + ((seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0);
       });
     });
     return [...semanasMap.values()].sort((a,b) => a.inicio - b.inicio);
@@ -6784,8 +6805,12 @@
   // particular (usa solo su propia serie); si se omite, es la del equipo
   // completo (suma de todos los SETTER_KEYS) — así se puede mostrar tanto
   // en el total como en cada línea individual del gráfico.
-  function calcularCondicionSemana(campoActual, refDateOverride, setterKey){
-    const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
+  // seriesObj: setterSeries (mes activo, default) o setterSeriesCompleto
+  // (todos los meses) — la vista Semanal necesita la versión completa
+  // para clasificar correctamente semanas de meses anteriores.
+  function calcularCondicionSemana(campoActual, refDateOverride, setterKey, seriesObj){
+    seriesObj = seriesObj || setterSeries;
+    const dates = (seriesObj && seriesObj.thomi) ? seriesObj.thomi.dates : [];
     if(!dates.length) return null;
 
     let latestLoadedDate = null;
@@ -6802,7 +6827,7 @@
       dates.forEach((dStr, i) => {
         const d = parseDDMMYYYY(dStr);
         if(d instanceof Date && !isNaN(d) && d >= inicio && d <= fin){
-          keysAContar.forEach(k => { total += (setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0; });
+          keysAContar.forEach(k => { total += (seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0; });
         }
       });
       return total;
@@ -6841,7 +6866,7 @@
       }
     }
 
-    const huboDatosAlgunaVez = dates.some((dStr,i) => keysAContar.some(k => ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0) > 0));
+    const huboDatosAlgunaVez = dates.some((dStr,i) => keysAContar.some(k => ((seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0) > 0));
 
     let condicion;
     if(!huboDatosAlgunaVez){
@@ -6875,9 +6900,12 @@
 
     // Vista "Semanal": en vez de un punto por día, un punto por semana
     // Vie-Jue (misma agrupación que usa la Condición semanal) — para ver
-    // la evolución semana a semana, como pidió el usuario.
+    // la evolución semana a semana, como pidió el usuario. Usa
+    // setterSeriesCompleto (TODOS los meses cargados, no solo el mes
+    // activo) para que se vea la tendencia completa desde que hay datos.
     const esSemanal = metricasVista === 'semanal';
-    const semanas = esSemanal ? agruparEnSemanas(diasDates, campoActual, SETTER_KEYS) : null;
+    const diasDatesCompleto = (setterSeriesCompleto && setterSeriesCompleto.thomi) ? setterSeriesCompleto.thomi.dates : [];
+    const semanas = esSemanal ? agruparEnSemanas(diasDatesCompleto, campoActual, SETTER_KEYS, setterSeriesCompleto) : null;
     const dates = esSemanal ? semanas.map(fmtRangoSemana) : diasDates;
     const n = esSemanal ? semanas.length : diasDates.length;
     if(!n) return;
@@ -6982,7 +7010,7 @@
       // equipo completo, y solo sobre la línea de "todos" — no una por
       // cada setter.
       if(key === 'todos'){
-        const rCond = calcularCondicionSemana(campoActual);
+        const rCond = calcularCondicionSemana(campoActual, null, null, esSemanal ? setterSeriesCompleto : undefined);
         if(rCond && n){
           const idx = idxParaCondicion(rCond.semanaActual);
           const color = CONDICIONES_INFO[rCond.condicion].color;
@@ -7024,7 +7052,7 @@
       }).join('');
       const visibleTotal = visibleKeys.reduce((s,k) => s + getVal(k,i), 0);
       const refDateCond = esSemanal ? semanas[i].fin : parseDDMMYYYY(dates[i]);
-      const rCond = (refDateCond instanceof Date && !isNaN(refDateCond)) ? calcularCondicionSemana(campoActual, refDateCond) : null;
+      const rCond = (refDateCond instanceof Date && !isNaN(refDateCond)) ? calcularCondicionSemana(campoActual, refDateCond, null, esSemanal ? setterSeriesCompleto : undefined) : null;
       const condHtml = rCond ? (() => {
         const info = CONDICIONES_INFO[rCond.condicion];
         const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -7069,9 +7097,12 @@
     }
 
     // Misma vista "Semanal" que el gráfico general de Métricas: un punto
-    // por semana Vie-Jue en vez de uno por día.
+    // por semana Vie-Jue en vez de uno por día, usando setterSeriesCompleto
+    // (todos los meses cargados) para ver la tendencia completa.
     const esSemanalVp = vpVista === 'semanal';
-    const semanasVp = esSemanalVp ? agruparEnSemanas(diasDates, vpMetricActual, [setterKey]) : null;
+    const sCompleto = setterSeriesCompleto && setterSeriesCompleto[setterKey];
+    const diasDatesCompletoVp = sCompleto ? sCompleto.dates : [];
+    const semanasVp = esSemanalVp ? agruparEnSemanas(diasDatesCompletoVp, vpMetricActual, [setterKey], setterSeriesCompleto) : null;
     const dates = esSemanalVp ? semanasVp.map(fmtRangoSemana) : diasDates;
     const n = esSemanalVp ? semanasVp.length : diasDates.length;
     if(!n){
@@ -7124,7 +7155,7 @@
     // la semana (recién ahí el número queda firme); mientras la semana
     // está en curso y ese jueves todavía no llegó, sigue el último día
     // cargado hasta terminar posado justo en el jueves cuando pasa.
-    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey);
+    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey, esSemanalVp ? setterSeriesCompleto : undefined);
     if(rCondVp && n){
       let idx = -1;
       if(esSemanalVp){
@@ -7166,7 +7197,7 @@
         if(!tooltip) return;
         const val = vpMetricActual === 'cash' ? fmtMoney(getVal(i)) : fmtInt(getVal(i));
         const refDateCondVp = esSemanalVp ? semanasVp[i].fin : parseDDMMYYYY(dates[i]);
-        const rCondVpTip = (refDateCondVp instanceof Date && !isNaN(refDateCondVp)) ? calcularCondicionSemana(vpMetricActual, refDateCondVp, setterKey) : null;
+        const rCondVpTip = (refDateCondVp instanceof Date && !isNaN(refDateCondVp)) ? calcularCondicionSemana(vpMetricActual, refDateCondVp, setterKey, esSemanalVp ? setterSeriesCompleto : undefined) : null;
         const condHtmlVp = rCondVpTip ? (() => {
           const info = CONDICIONES_INFO[rCondVpTip.condicion];
           const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
