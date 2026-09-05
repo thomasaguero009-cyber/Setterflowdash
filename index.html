@@ -7027,6 +7027,35 @@
       svg.appendChild(c);
     });
 
+    // Punto de "Condición semanal" de este setter — mismo criterio que el
+    // gráfico general de Métricas: se ancla al jueves 23:59 en que cierra
+    // la semana (recién ahí el número queda firme); mientras la semana
+    // está en curso y ese jueves todavía no llegó, sigue el último día
+    // cargado hasta terminar posado justo en el jueves cuando pasa.
+    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey);
+    if(rCondVp && n){
+      const juevesTime = rCondVp.semanaActual.fin.getTime();
+      let idx = -1;
+      dates.forEach((dStr,i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(d instanceof Date && !isNaN(d)){
+          const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
+          if(t === juevesTime) idx = i;
+        }
+      });
+      if(idx === -1) idx = n-1;
+      const condColor = CONDICIONES_INFO[rCondVp.condicion].color;
+      const [px, py] = pts[idx];
+      const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','8');
+      halo.setAttribute('fill', condColor); halo.setAttribute('opacity','0.25');
+      svg.appendChild(halo);
+      const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','4.5');
+      punto.setAttribute('fill', condColor); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
+      svg.appendChild(punto);
+    }
+
     for(let i=0;i<n;i++){
       const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
       const x = xAt(i);
@@ -7040,7 +7069,15 @@
       const showTip = () => {
         if(!tooltip) return;
         const val = vpMetricActual === 'cash' ? fmtMoney(getVal(i)) : fmtInt(getVal(i));
+        const diaDateVp = parseDDMMYYYY(dates[i]);
+        const rCondVpTip = (diaDateVp instanceof Date && !isNaN(diaDateVp)) ? calcularCondicionSemana(vpMetricActual, diaDateVp, setterKey) : null;
+        const condHtmlVp = rCondVpTip ? (() => {
+          const info = CONDICIONES_INFO[rCondVpTip.condicion];
+          const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+          return `<div class="condicion-dot-row" style="color:${info.color};"><span class="condicion-dot" style="background:${info.color};"></span>${info.label} <span style="color:var(--text-dim);font-weight:600;">${fmt(rCondVpTip.semanaActual.inicio)} a ${fmt(rCondVpTip.semanaActual.fin)}</span></div>`;
+        })() : '';
         tooltip.innerHTML = `
+          ${condHtmlVp}
           <div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
           <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>
           <div class="tt-row"><span class="tt-name">${vpMetricActual.charAt(0).toUpperCase()+vpMetricActual.slice(1)}</span><span class="tt-val" style="color:${color}">${val}</span></div>
