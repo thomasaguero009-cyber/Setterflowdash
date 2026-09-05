@@ -556,6 +556,13 @@
   .chart-reveal{ opacity:0; transform:translateY(16px); transition: opacity 2.7s ease, transform 2.7s ease; }
   rect.estrellas-bar{ transition: height 2.9s cubic-bezier(.22,.9,.28,1), y 2.9s cubic-bezier(.22,.9,.28,1); }
   .chart-reveal.revealed{ opacity:1; transform:translateY(0); }
+  /* El gráfico de Proyección ya tiene su propia animación de "despegue"
+     (la línea real se dibuja de izquierda a derecha siguiendo la
+     trayectoria) — acá se anula el translateY para que no se le sume el
+     efecto de "sube desde abajo" del reveal genérico y quede solo el
+     desplazamiento horizontal. */
+  .chart-reveal.no-slide{ transform:none; transition: opacity 0.5s ease; }
+  .chart-reveal.no-slide.revealed{ transform:none; }
   .rank-val{ width: 90px; text-align:right; font-weight:800; font-size:14px; }
 
   /* CHART */
@@ -1833,7 +1840,7 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
+          <svg class="chart chart-reveal no-slide" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
