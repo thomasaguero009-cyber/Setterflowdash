@@ -6805,11 +6805,13 @@
   // particular (usa solo su propia serie); si se omite, es la del equipo
   // completo (suma de todos los SETTER_KEYS) — así se puede mostrar tanto
   // en el total como en cada línea individual del gráfico.
-  // seriesObj: setterSeries (mes activo, default) o setterSeriesCompleto
-  // (todos los meses) — la vista Semanal necesita la versión completa
-  // para clasificar correctamente semanas de meses anteriores.
+  // seriesObj: por defecto setterSeriesCompleto (TODOS los meses
+  // cargados) — hace falta siempre, no solo en la vista Semanal, porque
+  // la semana Vie-Jue a evaluar puede cruzar el límite del mes activo
+  // (ej. 28/08 a 03/09 con Septiembre como mes activo) y quedar
+  // incompleta si se mira solo con setterSeries.
   function calcularCondicionSemana(campoActual, refDateOverride, setterKey, seriesObj){
-    seriesObj = seriesObj || setterSeries;
+    seriesObj = seriesObj || setterSeriesCompleto || setterSeries;
     const dates = (seriesObj && seriesObj.thomi) ? seriesObj.thomi.dates : [];
     if(!dates.length) return null;
 
@@ -7010,7 +7012,7 @@
       // equipo completo, y solo sobre la línea de "todos" — no una por
       // cada setter.
       if(key === 'todos'){
-        const rCond = calcularCondicionSemana(campoActual, null, null, esSemanal ? setterSeriesCompleto : undefined);
+        const rCond = calcularCondicionSemana(campoActual, null, null, setterSeriesCompleto);
         if(rCond && n){
           const idx = idxParaCondicion(rCond.semanaActual);
           const color = CONDICIONES_INFO[rCond.condicion].color;
@@ -7052,7 +7054,7 @@
       }).join('');
       const visibleTotal = visibleKeys.reduce((s,k) => s + getVal(k,i), 0);
       const refDateCond = esSemanal ? semanas[i].fin : parseDDMMYYYY(dates[i]);
-      const rCond = (refDateCond instanceof Date && !isNaN(refDateCond)) ? calcularCondicionSemana(campoActual, refDateCond, null, esSemanal ? setterSeriesCompleto : undefined) : null;
+      const rCond = (refDateCond instanceof Date && !isNaN(refDateCond)) ? calcularCondicionSemana(campoActual, refDateCond, null, setterSeriesCompleto) : null;
       const condHtml = rCond ? (() => {
         const info = CONDICIONES_INFO[rCond.condicion];
         const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -7155,7 +7157,7 @@
     // la semana (recién ahí el número queda firme); mientras la semana
     // está en curso y ese jueves todavía no llegó, sigue el último día
     // cargado hasta terminar posado justo en el jueves cuando pasa.
-    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey, esSemanalVp ? setterSeriesCompleto : undefined);
+    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey, setterSeriesCompleto);
     if(rCondVp && n){
       let idx = -1;
       if(esSemanalVp){
@@ -7197,7 +7199,7 @@
         if(!tooltip) return;
         const val = vpMetricActual === 'cash' ? fmtMoney(getVal(i)) : fmtInt(getVal(i));
         const refDateCondVp = esSemanalVp ? semanasVp[i].fin : parseDDMMYYYY(dates[i]);
-        const rCondVpTip = (refDateCondVp instanceof Date && !isNaN(refDateCondVp)) ? calcularCondicionSemana(vpMetricActual, refDateCondVp, setterKey, esSemanalVp ? setterSeriesCompleto : undefined) : null;
+        const rCondVpTip = (refDateCondVp instanceof Date && !isNaN(refDateCondVp)) ? calcularCondicionSemana(vpMetricActual, refDateCondVp, setterKey, setterSeriesCompleto) : null;
         const condHtmlVp = rCondVpTip ? (() => {
           const info = CONDICIONES_INFO[rCondVpTip.condicion];
           const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
