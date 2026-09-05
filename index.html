@@ -642,6 +642,8 @@
   .chart-tooltip .condicion-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
   .chart-tooltip .condicion-total-row{ font-size:12px; color:var(--text-dim); font-weight:600; margin-top:6px; }
   .chart-tooltip .condicion-total-row b{ font-weight:800; }
+  .chart-tooltip .condicion-encurso-row{ border-top:1px dashed var(--border); margin-top:6px; padding-top:8px; font-size:12px; color:var(--text-dim); font-weight:600; }
+  .chart-tooltip .condicion-encurso-row b{ color:var(--text); font-weight:800; }
   .chart-tooltip .tt-day{ font-size:14px; font-weight:800; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
   .chart-tooltip .tt-day .cdot{ width:8px; height:8px; border-radius:50%; background:var(--green); }
   .chart-tooltip .tt-row{ display:flex; align-items:center; justify-content:space-between; gap:18px; padding: 4px 0; font-size:13px; }
@@ -1630,10 +1632,10 @@
       <div class="section-label" id="nav-ranking">🏆 Ranking</div>
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div class="rank-toggle" id="rankToggle" style="margin-bottom:18px;">
-          <div class="rt-btn active" data-rank="mensual">Mensual</div>
+          <div class="rt-btn" data-rank="mensual">Mensual</div>
           <div class="rt-btn" data-rank="semanal">Semanal</div>
           <div class="rt-btn" data-rank="ayer">Ayer</div>
-          <div class="rt-btn" data-rank="hoy">Hoy</div>
+          <div class="rt-btn active" data-rank="hoy">Hoy</div>
         </div>
         <div style="position:relative;margin-bottom:18px;">
           <button type="button" id="rankCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;">
@@ -2519,7 +2521,7 @@
     if(typeof renderRankingPanels === 'function'){
       try{
         const activeRankBtn = document.querySelector('.rank-toggle .rt-btn.active');
-        renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'mensual');
+        renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'hoy');
       } catch(e){ /* setterSeries puede no estar listo todavía, no pasa nada */ }
     }
   }
@@ -4724,7 +4726,7 @@
 
     renderTrackerCards();
     const activeRankBtn = document.querySelector('.rank-toggle .rt-btn.active');
-    renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'mensual');
+    renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'hoy');
     if(recuentoOk) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
@@ -6810,6 +6812,30 @@
     return fmt(semana.inicio) + '-' + fmt(semana.fin);
   }
 
+  // Total de la semana Vie-Jue que CONTIENE refDate — a diferencia de
+  // calcularCondicionSemana(), acá NO se hace rollback a la semana
+  // anterior si todavía está en curso: es justo para mostrar "cuánto
+  // lleva acumulado" la semana que está pasando ahora mismo, sin
+  // clasificarla todavía (no tiene sentido juzgar Normal/Peligro/etc con
+  // 1 o 2 días de datos).
+  function totalSemanaQueContiene(refDate, campoActual, setterKey, seriesObj){
+    seriesObj = seriesObj || setterSeriesCompleto || setterSeries;
+    const keysAContar = setterKey ? [setterKey] : SETTER_KEYS;
+    const semana = rangoSemanaVieJue(refDate);
+    let total = 0;
+    keysAContar.forEach(k => {
+      const serie = seriesObj[k];
+      if(!serie) return;
+      serie.dates.forEach((dStr, i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(d instanceof Date && !isNaN(d) && d >= semana.inicio && d <= semana.fin){
+          total += (serie[campoActual] && serie[campoActual][i]) || 0;
+        }
+      });
+    });
+    return { semana, total };
+  }
+
   // Refleja siempre el total DEL EQUIPO para la métrica que está elegida
   // en el toggle (Agendas/Seguimientos/Cash/Horas) — no cambia si filtrás
   // por chips de setter, porque la condición es del negocio, no de una
@@ -7092,11 +7118,28 @@
         ? `<div class="tt-day"><span class="cdot"></span>Semana ${dates[i]}</div>`
         : `<div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
            <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 8px 16px;">${nombreDiaSemana(dates[i])}</div>`;
+      // Si el día que se está mirando cae en una semana TODAVÍA EN CURSO
+      // (distinta de la última semana cerrada que ya se muestra arriba
+      // como "Total semanal"), se agrega cuánto lleva acumulado esa
+      // semana en curso hasta ahora — sin clasificarla (Normal/Peligro/
+      // etc.), porque juzgar una semana a medio terminar da lecturas
+      // falsas.
+      let semanaEnCursoHtml = '';
+      if(!esSemanal && refDateCond instanceof Date && !isNaN(refDateCond)){
+        const semanaPropia = rangoSemanaVieJue(refDateCond);
+        if(!rCond || semanaPropia.fin.getTime() !== rCond.semanaActual.fin.getTime()){
+          const { semana: semanaEC, total: totalEC } = totalSemanaQueContiene(refDateCond, campoActual, null, setterSeriesCompleto);
+          const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+          const totalECFmt = campoActual === 'cash' ? fmtMoney(totalEC) : fmtInt(totalEC);
+          semanaEnCursoHtml = `<div class="condicion-encurso-row">Semana en curso (${fmt(semanaEC.inicio)} a ${fmt(semanaEC.fin)}) <b>${totalECFmt}</b></div>`;
+        }
+      }
       tooltip.innerHTML = `
         ${condHtml}
         ${encabezado}
         ${rows}
         <div class="tt-row total"><span class="tt-name">Total</span><span class="tt-val" style="color:var(--green)">${Math.round(visibleTotal)}</span></div>
+        ${semanaEnCursoHtml}
       `;
       const wrapWidth = svg.parentElement.clientWidth;
       const pxRatio = wrapWidth / W;
@@ -7239,10 +7282,21 @@
           ? `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Semana ${dates[i]}</div>`
           : `<div class="tt-day"><span class="cdot" style="background:${color}"></span>Día ${dates[i]}</div>
              <div style="font-size:11px;color:var(--text-dim);margin:-6px 0 6px 16px;">${nombreDiaSemana(dates[i])}</div>`;
+        let semanaEnCursoHtmlVp = '';
+        if(!esSemanalVp && refDateCondVp instanceof Date && !isNaN(refDateCondVp)){
+          const semanaPropiaVp = rangoSemanaVieJue(refDateCondVp);
+          if(!rCondVpTip || semanaPropiaVp.fin.getTime() !== rCondVpTip.semanaActual.fin.getTime()){
+            const { semana: semanaECVp, total: totalECVp } = totalSemanaQueContiene(refDateCondVp, vpMetricActual, setterKey, setterSeriesCompleto);
+            const fmt = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+            const totalECVpFmt = vpMetricActual === 'cash' ? fmtMoney(totalECVp) : fmtInt(totalECVp);
+            semanaEnCursoHtmlVp = `<div class="condicion-encurso-row">Semana en curso (${fmt(semanaECVp.inicio)} a ${fmt(semanaECVp.fin)}) <b>${totalECVpFmt}</b></div>`;
+          }
+        }
         tooltip.innerHTML = `
           ${condHtmlVp}
           ${encabezadoVp}
           <div class="tt-row"><span class="tt-name">${vpMetricActual.charAt(0).toUpperCase()+vpMetricActual.slice(1)}</span><span class="tt-val" style="color:${color}">${val}</span></div>
+          ${semanaEnCursoHtmlVp}
         `;
         const wrapWidth = svg.parentElement.clientWidth;
         const pxRatio = wrapWidth / W;
