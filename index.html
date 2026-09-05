@@ -556,6 +556,13 @@
   .chart-reveal{ opacity:0; transform:translateY(16px); transition: opacity 2.7s ease, transform 2.7s ease; }
   rect.estrellas-bar{ transition: height 2.9s cubic-bezier(.22,.9,.28,1), y 2.9s cubic-bezier(.22,.9,.28,1); }
   .chart-reveal.revealed{ opacity:1; transform:translateY(0); }
+  /* Variante para el gráfico de Proyección (Matemática del éxito) — en vez
+     de aparecer con fade + deslizar hacia arriba, se revela como un barrido
+     de izquierda a derecha (clip-path en vez de transform). Clase aparte
+     para no tocar la animación del otro gráfico (Métricas - Setters), que
+     ya se afinó a pedido antes. */
+  .chart-reveal-ltr{ transform:none; clip-path: inset(0 100% 0 0); transition: opacity 0.5s ease, clip-path 2.7s ease; }
+  .chart-reveal-ltr.revealed{ clip-path: inset(0 0% 0 0); }
   .rank-val{ width: 90px; text-align:right; font-weight:800; font-size:14px; }
 
   /* CHART */
@@ -1817,9 +1824,6 @@
 
         <div class="mate-exito-progress-bar"><div class="mate-exito-progress-fill" id="me-progress-fill"></div></div>
 
-        <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales, para lo que queda del mes)</div>
-        <div class="perf-grid" id="me-setters-grid"></div>
-
         <div class="section-label" style="margin-top:24px;">Proyección: ¿cuánto vamos a facturar a fin de mes?</div>
         <div class="mate-exito-proy-grid">
           <div class="mate-exito-proy-card" style="--proy-color:#34d399;">
@@ -1836,10 +1840,13 @@
           </div>
         </div>
         <div class="chart-wrap">
-          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
+          <svg class="chart chart-reveal chart-reveal-ltr" viewBox="0 0 1000 280" preserveAspectRatio="none" id="proyeccionChart"></svg>
           <div class="chart-tooltip" id="proyeccionTooltip"></div>
         </div>
         <div class="data-status">🚀 = facturación real acumulada de este mes, día a día (pasá el mouse por la línea para ver el detalle). Punteado = proyección desde hoy hasta fin de mes en cada escenario. Ritmo actual = promedio de Cash por día de este mes hasta hoy.</div>
+
+        <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales, para lo que queda del mes)</div>
+        <div class="perf-grid" id="me-setters-grid"></div>
       </div>
 
       <div class="section-label">⚡ Performance individual (Ayer)</div>
