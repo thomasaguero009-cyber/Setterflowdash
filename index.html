@@ -508,17 +508,6 @@
   .estrellas-pie-legend .epl-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .estrellas-pie-legend b{ color:var(--text); }
 
-  /* CONDICIÓN SEMANAL (estadísticas Vie-Jue, estilo "Condiciones" de
-     administración por estadísticas) — badge chiquito dentro de una
-     tracker-card, ej. "Agendas acumuladas". */
-  .tc-condicion{
-    align-items:center; gap:6px; padding:4px 10px; margin-top:10px;
-    border-radius:999px; border:1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
-    font-size:11.5px; font-weight:700; cursor:help; width:fit-content;
-  }
-  .condicion-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
-  .tc-condicion .cb-label{ color: currentColor; }
-
   /* NAV RÁPIDA (arriba del Tracker, saltos a cada sección de Inicio) */
   html{ scroll-behavior:smooth; }
   .quick-nav-row{ display:flex; flex-wrap:wrap; gap:8px; margin: 0 0 22px; }
@@ -1618,7 +1607,6 @@
           <div class="tl">Agendas acumuladas</div>
           <div class="tv" id="tk-agendas-value">1.142</div>
           <div class="tf">Líder: <b id="tk-agendas-leader">Flor</b> · <span id="tk-agendas-leader-val">732</span></div>
-          <div class="tc-condicion" id="tk-agendas-condicion" style="display:none;"></div>
         </div>
         <div class="tracker-card cash">
           <div class="tl">Cash acumulado</div>
@@ -5050,8 +5038,6 @@
     document.getElementById('tk-seg-value').textContent = fmtInt(SETTER_KEYS.reduce((s,k)=>s+totals[k].seguimientos,0));
     document.getElementById('tk-seg-leader').textContent = nameCap(lSeg);
     document.getElementById('tk-seg-leader-val').textContent = fmtInt(totals[lSeg].seguimientos);
-
-    renderCondicionTrackerAgendas();
   }
 
   // ===== "Reveal on scroll": los gráficos arrancan en su estado inicial
@@ -6721,7 +6707,6 @@
     const inicioAnt = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() - 7, 0, 0, 0);
     return rangoSemanaVieJue(inicioAnt);
   }
-  function fmtFechaCorta(d){ return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); }
 
   // Refleja siempre el total DEL EQUIPO para la métrica que está elegida
   // en el toggle (Agendas/Seguimientos/Cash/Horas) — no cambia si filtrás
@@ -6789,26 +6774,6 @@
     }
 
     return { condicion, curTotal, prevTotal, semanaActual };
-  }
-
-  // Chiquito, para colgar dentro de una tracker-card (a diferencia del
-  // badge de texto, que el usuario pidió sacar de arriba del gráfico y
-  // poner acá — ver renderCondicionTrackerAgendas).
-  function renderCondicionEnCard(elId, campoActual){
-    const el = document.getElementById(elId);
-    if(!el) return null;
-    const r = calcularCondicionSemana(campoActual);
-    if(!r){ el.style.display = 'none'; return null; }
-    const info = CONDICIONES_INFO[r.condicion];
-    el.style.display = 'inline-flex';
-    el.style.color = info.color;
-    el.title = `${info.label}: ${info.formula}\nEsta semana (${fmtFechaCorta(r.semanaActual.inicio)}-${fmtFechaCorta(r.semanaActual.fin)}): ${fmtInt(r.curTotal)} · semana pasada: ${fmtInt(r.prevTotal)}`;
-    el.innerHTML = `<span class="condicion-dot" style="background:${info.color};"></span><span class="cb-label">${info.label}</span>`;
-    return { color: info.color, semanaActual: r.semanaActual };
-  }
-
-  function renderCondicionTrackerAgendas(){
-    renderCondicionEnCard('tk-agendas-condicion', 'leads');
   }
 
   function drawChart(){
