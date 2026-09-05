@@ -508,6 +508,17 @@
   .estrellas-pie-legend .epl-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .estrellas-pie-legend b{ color:var(--text); }
 
+  /* CONDICIÓN SEMANAL (estadísticas Vie-Jue, estilo "Condiciones" de
+     administración por estadísticas) */
+  .condicion-badge{
+    display:inline-flex; align-items:center; gap:8px; padding:8px 14px;
+    border-radius:999px; border:1px solid var(--border); background:var(--card);
+    font-size:12.5px; font-weight:700; margin: 4px 0 16px; cursor:help;
+  }
+  .condicion-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; box-shadow: 0 0 8px currentColor; }
+  .condicion-badge .cb-label{ color: var(--text); }
+  .condicion-badge .cb-sub{ color: var(--text-dim); font-weight:600; }
+
   /* NAV RÁPIDA (arriba del Tracker, saltos a cada sección de Inicio) */
   html{ scroll-behavior:smooth; }
   .quick-nav-row{ display:flex; flex-wrap:wrap; gap:8px; margin: 0 0 22px; }
@@ -1676,6 +1687,7 @@
           <div class="rt-btn">Cash</div>
           <div class="rt-btn">Horas</div>
         </div>
+        <div class="condicion-badge" id="condicionBadge" style="display:none;"></div>
         <div class="chart-wrap">
           <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
@@ -6682,6 +6694,115 @@
     });
   });
 
+  // ===== Condición semanal (Vie-Jue) =====
+  // Adaptación de las "Condiciones" de administración por estadísticas: la
+  // semana ACÁ siempre es viernes 00:00 a jueves 23:59:59 (a pedido), sin
+  // relación con el bloque de "semana" de 7 días fijo del mes que ya usa
+  // getWeekRange()/bucketRangeForDate() en otro lado del dashboard — son
+  // dos conceptos de "semana" distintos, cada uno para su propia sección.
+  const CONDICIONES_INFO = {
+    inexistencia: { label: 'Inexistencia', color: '#8a8a99', formula: 'Área sin producción todavía: encontrar una línea de comunicación, encontrar qué se necesita, y hacerlo.' },
+    peligro:      { label: 'Peligro',      color: '#ef4444', formula: 'Caída fuerte (o dejó de reportarse): manejar la crisis ya mismo y después buscar qué la causó.' },
+    emergencia:   { label: 'Emergencia',   color: '#f59e0b', formula: 'Bajó (o está plana hace 2 semanas): promover, producir, economizar y no gastar de más.' },
+    normal:       { label: 'Normal',       color: '#7c6cf0', formula: 'Sube de forma pareja: no cambiar nada, seguir igual.' },
+    afluencia:    { label: 'Afluencia',    color: '#34d399', formula: 'Pico nunca visto: no derrochar — pagar deudas pendientes e invertir el excedente.' }
+  };
+
+  function rangoSemanaVieJue(refDate){
+    const dow = refDate.getDay(); // 0=domingo … 5=viernes … 6=sábado
+    const diasDesdeViernes = (dow - 5 + 7) % 7;
+    const inicio = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate() - diasDesdeViernes, 0, 0, 0);
+    const fin = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 6, 23, 59, 59);
+    return { inicio, fin };
+  }
+  function semanaVieJueAnterior({ inicio }){
+    const inicioAnt = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() - 7, 0, 0, 0);
+    return rangoSemanaVieJue(inicioAnt);
+  }
+  function fmtFechaCorta(d){ return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); }
+
+  // Refleja siempre el total DEL EQUIPO para la métrica que está elegida
+  // en el toggle (Agendas/Seguimientos/Cash/Horas) — no cambia si filtrás
+  // por chips de setter, porque la condición es del negocio, no de una
+  // sola persona viendo el gráfico filtrado.
+  function calcularCondicionSemana(){
+    const dates = (setterSeries && setterSeries.thomi) ? setterSeries.thomi.dates : [];
+    const campoActual = currentMetric === 'agendas' ? 'leads' : currentMetric;
+    if(!dates.length) return null;
+
+    let refDate = null;
+    dates.forEach(dStr => {
+      const d = parseDDMMYYYY(dStr);
+      if(d instanceof Date && !isNaN(d) && (!refDate || d > refDate)) refDate = d;
+    });
+    if(!refDate) return null;
+
+    function totalEnRango(inicio, fin){
+      let total = 0;
+      dates.forEach((dStr, i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(d instanceof Date && !isNaN(d) && d >= inicio && d <= fin){
+          SETTER_KEYS.forEach(k => { total += (setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0; });
+        }
+      });
+      return total;
+    }
+
+    const semanaActual = rangoSemanaVieJue(refDate);
+    const semanaPasada = semanaVieJueAnterior(semanaActual);
+    const semanaAntePasada = semanaVieJueAnterior(semanaPasada);
+
+    const curTotal = totalEnRango(semanaActual.inicio, semanaActual.fin);
+    const prevTotal = totalEnRango(semanaPasada.inicio, semanaPasada.fin);
+    const prevPrevTotal = totalEnRango(semanaAntePasada.inicio, semanaAntePasada.fin);
+
+    // Techo más alto entre las semanas Vie-Jue completas anteriores a la
+    // actual, DENTRO de lo que hay cargado (el mes activo) — sirve para
+    // detectar Afluencia como "pico nunca visto EN LO CARGADO", no un
+    // histórico absoluto de toda la vida del negocio.
+    let techoHistorico = 0;
+    const primerDia = parseDDMMYYYY(dates[0]);
+    if(primerDia instanceof Date && !isNaN(primerDia)){
+      let cursor = semanaPasada.inicio;
+      while(cursor >= primerDia){
+        const finCursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 6, 23, 59, 59);
+        const t = totalEnRango(cursor, finCursor);
+        if(t > techoHistorico) techoHistorico = t;
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 7);
+      }
+    }
+
+    const huboDatosAlgunaVez = dates.some((dStr,i) => SETTER_KEYS.some(k => ((setterSeries[k] && setterSeries[k][campoActual] && setterSeries[k][campoActual][i]) || 0) > 0));
+
+    let condicion;
+    if(!huboDatosAlgunaVez){
+      condicion = 'inexistencia';
+    } else if((prevTotal > 0 && curTotal <= prevTotal * 0.5) || (curTotal === 0 && prevTotal === 0 && prevPrevTotal > 0)){
+      condicion = 'peligro';
+    } else if(techoHistorico > 0 && curTotal > techoHistorico && curTotal > prevTotal * 1.15){
+      condicion = 'afluencia';
+    } else if(curTotal < prevTotal || (curTotal === prevTotal && prevTotal === prevPrevTotal)){
+      condicion = 'emergencia';
+    } else {
+      condicion = 'normal';
+    }
+
+    return { condicion, curTotal, prevTotal, semanaActual };
+  }
+
+  function renderCondicionBadge(){
+    const el = document.getElementById('condicionBadge');
+    if(!el) return;
+    const r = calcularCondicionSemana();
+    if(!r){ el.style.display = 'none'; return; }
+    const info = CONDICIONES_INFO[r.condicion];
+    el.style.display = 'inline-flex';
+    el.style.color = info.color;
+    el.title = `${info.label}: ${info.formula}\nEsta semana (${fmtFechaCorta(r.semanaActual.inicio)}-${fmtFechaCorta(r.semanaActual.fin)}): ${fmtInt(r.curTotal)} · semana pasada: ${fmtInt(r.prevTotal)}`;
+    el.innerHTML = `<span class="condicion-dot" style="background:${info.color};"></span><span class="cb-label">${info.label}</span><span class="cb-sub">— esta semana (vie-jue)</span>`;
+    return info.color;
+  }
+
   function drawChart(){
     const svg = document.getElementById('trendChart');
     svg.style.display = '';
@@ -6766,6 +6887,24 @@
         svg.appendChild(c);
       });
     });
+
+    // Punto de "Condición semanal" (Peligro/Emergencia/Normal/Afluencia/
+    // Inexistencia — ver calcularCondicionSemana): un punto grande de
+    // color sobre el total del equipo en el último día cargado, así la
+    // condición se ve directo en el gráfico y no solo en el badge de
+    // arriba.
+    const condicionColor = renderCondicionBadge();
+    if(condicionColor && n){
+      const lastX = xAt(n-1), lastY = yAt(totals[n-1]);
+      const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      halo.setAttribute('cx', lastX); halo.setAttribute('cy', lastY); halo.setAttribute('r','9');
+      halo.setAttribute('fill', condicionColor); halo.setAttribute('opacity','0.25');
+      svg.appendChild(halo);
+      const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      punto.setAttribute('cx', lastX); punto.setAttribute('cy', lastY); punto.setAttribute('r','5');
+      punto.setAttribute('fill', condicionColor); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
+      svg.appendChild(punto);
+    }
 
     const tooltip = document.getElementById('chartTooltip');
     for(let i=0;i<n;i++){
