@@ -6905,22 +6905,24 @@
       });
 
       // Punto de "Condición semanal" (Peligro/Emergencia/Normal/Afluencia/
-      // Inexistencia — ver calcularCondicionSemana) de ESTA línea: el
-      // equipo si key==='todos', o el setter individual si no — así cada
-      // línea muestra su propia condición, no solo la del total.
-      const rCond = calcularCondicionSemana(campoActual, null, key === 'todos' ? null : key);
-      if(rCond && n){
-        const idx = idxParaCondicion(rCond.semanaActual);
-        const color = CONDICIONES_INFO[rCond.condicion].color;
-        const [px, py] = pts[idx];
-        const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
-        halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','9');
-        halo.setAttribute('fill', color); halo.setAttribute('opacity','0.25');
-        svg.appendChild(halo);
-        const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
-        punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','5');
-        punto.setAttribute('fill', color); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
-        svg.appendChild(punto);
+      // Inexistencia — ver calcularCondicionSemana): UN solo punto, del
+      // equipo completo, y solo sobre la línea de "todos" — no una por
+      // cada setter.
+      if(key === 'todos'){
+        const rCond = calcularCondicionSemana(campoActual);
+        if(rCond && n){
+          const idx = idxParaCondicion(rCond.semanaActual);
+          const color = CONDICIONES_INFO[rCond.condicion].color;
+          const [px, py] = pts[idx];
+          const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          halo.setAttribute('cx', px); halo.setAttribute('cy', py); halo.setAttribute('r','9');
+          halo.setAttribute('fill', color); halo.setAttribute('opacity','0.25');
+          svg.appendChild(halo);
+          const punto = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          punto.setAttribute('cx', px); punto.setAttribute('cy', py); punto.setAttribute('r','5');
+          punto.setAttribute('fill', color); punto.setAttribute('stroke','#08080d'); punto.setAttribute('stroke-width','1.5');
+          svg.appendChild(punto);
+        }
       }
     });
 
