@@ -6781,18 +6781,26 @@
   // por cada semana que tenga al menos un día cargado (la semana en
   // curso puede salir con menos de 7 días sumados, y así se muestra: lo
   // que va de esa semana hasta ahora).
-  function agruparEnSemanas(dates, campoActual, keys, seriesObj){
+  // OJO: cada setter puede tener su propio arreglo de fechas, de largo Y
+  // arranque distintos (ej. alguien que se sumó al equipo más tarde no
+  // tiene fechas viejas) — por eso cada setter se recorre con SU PROPIO
+  // índice, nunca reutilizando el índice de otro setter. Sumar por
+  // posición compartida en vez de por fecha real desalinea a cualquiera
+  // que no arrancó el mismo día que el resto.
+  function agruparEnSemanas(campoActual, keys, seriesObj){
     seriesObj = seriesObj || setterSeries;
     const semanasMap = new Map();
-    dates.forEach((dStr, i) => {
-      const d = parseDDMMYYYY(dStr);
-      if(!(d instanceof Date) || isNaN(d)) return;
-      const semana = rangoSemanaVieJue(d);
-      const mapKey = semana.inicio.getTime();
-      if(!semanasMap.has(mapKey)) semanasMap.set(mapKey, { inicio: semana.inicio, fin: semana.fin, valores: {} });
-      const entry = semanasMap.get(mapKey);
-      keys.forEach(k => {
-        entry.valores[k] = (entry.valores[k] || 0) + ((seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0);
+    keys.forEach(k => {
+      const serie = seriesObj[k];
+      if(!serie) return;
+      serie.dates.forEach((dStr, i) => {
+        const d = parseDDMMYYYY(dStr);
+        if(!(d instanceof Date) || isNaN(d)) return;
+        const semana = rangoSemanaVieJue(d);
+        const mapKey = semana.inicio.getTime();
+        if(!semanasMap.has(mapKey)) semanasMap.set(mapKey, { inicio: semana.inicio, fin: semana.fin, valores: {} });
+        const entry = semanasMap.get(mapKey);
+        entry.valores[k] = (entry.valores[k] || 0) + ((serie[campoActual] && serie[campoActual][i]) || 0);
       });
     });
     return [...semanasMap.values()].sort((a,b) => a.inicio - b.inicio);
@@ -6832,13 +6840,22 @@
     const refDate = refDateOverride || latestLoadedDate;
 
     const keysAContar = setterKey ? [setterKey] : SETTER_KEYS;
+    // OJO: cada setter puede tener su propio arreglo de fechas (largo y
+    // arranque distintos, ej. alguien que se sumó al equipo más tarde) —
+    // por eso cada uno se recorre con SU PROPIO índice, nunca reutilizando
+    // el índice de otro. Sumar por posición compartida en vez de por
+    // fecha real desalinea a cualquiera que no arrancó el mismo día.
     function totalEnRango(inicio, fin){
       let total = 0;
-      dates.forEach((dStr, i) => {
-        const d = parseDDMMYYYY(dStr);
-        if(d instanceof Date && !isNaN(d) && d >= inicio && d <= fin){
-          keysAContar.forEach(k => { total += (seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0; });
-        }
+      keysAContar.forEach(k => {
+        const serie = seriesObj[k];
+        if(!serie) return;
+        serie.dates.forEach((dStr, i) => {
+          const d = parseDDMMYYYY(dStr);
+          if(d instanceof Date && !isNaN(d) && d >= inicio && d <= fin){
+            total += (serie[campoActual] && serie[campoActual][i]) || 0;
+          }
+        });
       });
       return total;
     }
@@ -6876,7 +6893,7 @@
       }
     }
 
-    const huboDatosAlgunaVez = dates.some((dStr,i) => keysAContar.some(k => ((seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual][i]) || 0) > 0));
+    const huboDatosAlgunaVez = keysAContar.some(k => seriesObj[k] && seriesObj[k][campoActual] && seriesObj[k][campoActual].some(v => v > 0));
 
     let condicion;
     if(!huboDatosAlgunaVez){
@@ -6914,8 +6931,7 @@
     // setterSeriesCompleto (TODOS los meses cargados, no solo el mes
     // activo) para que se vea la tendencia completa desde que hay datos.
     const esSemanal = metricasVista === 'semanal';
-    const diasDatesCompleto = (setterSeriesCompleto && setterSeriesCompleto.thomi) ? setterSeriesCompleto.thomi.dates : [];
-    const semanas = esSemanal ? agruparEnSemanas(diasDatesCompleto, campoActual, SETTER_KEYS, setterSeriesCompleto) : null;
+    const semanas = esSemanal ? agruparEnSemanas(campoActual, SETTER_KEYS, setterSeriesCompleto) : null;
     const dates = esSemanal ? semanas.map(fmtRangoSemana) : diasDates;
     const n = esSemanal ? semanas.length : diasDates.length;
     if(!n) return;
@@ -7114,9 +7130,7 @@
     // por semana Vie-Jue en vez de uno por día, usando setterSeriesCompleto
     // (todos los meses cargados) para ver la tendencia completa.
     const esSemanalVp = vpVista === 'semanal';
-    const sCompleto = setterSeriesCompleto && setterSeriesCompleto[setterKey];
-    const diasDatesCompletoVp = sCompleto ? sCompleto.dates : [];
-    const semanasVp = esSemanalVp ? agruparEnSemanas(diasDatesCompletoVp, vpMetricActual, [setterKey], setterSeriesCompleto) : null;
+    const semanasVp = esSemanalVp ? agruparEnSemanas(vpMetricActual, [setterKey], setterSeriesCompleto) : null;
     const dates = esSemanalVp ? semanasVp.map(fmtRangoSemana) : diasDates;
     const n = esSemanalVp ? semanasVp.length : diasDates.length;
     if(!n){
