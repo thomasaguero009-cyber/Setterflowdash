@@ -469,64 +469,13 @@
   .tracker-card.cash{ --glow-color: #f0a63f; }
   .tracker-card.seg{ --glow-color: var(--green); }
   .tracker-card.organico{ --glow-color: var(--green); }
-  /* Luz de neón tipo "serpiente": en vez de que el brillo del borde entero
-     prenda/apague parejo (neonPulse, versión vieja), ahora es un punto
-     brillante que recorre el borde en sentido horario dejando una cola que
-     se va apagando detrás — como si algo hubiera pasado por ahí. Técnica:
-     un conic-gradient (bien cargado del lado "0°", transparente del lado
-     opuesto) rotando vía la variable --neon-angle, recortado a un anillo
-     fino con la máscara padding-box/content-box de siempre para este tipo
-     de efecto ("border beam"). @property es lo que permite que el ángulo
-     SE PUEDA animar suave (sin @property, un custom property no numérico
-     no interpola, saltaría de golpe en vez de girar).
-  */
-  @property --neon-angle{
-    syntax: '<angle>';
-    inherits: true;
-    initial-value: 0deg;
+  .tracker-card, .perf-card{
+    animation: neonPulse 4.2s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite;
+    will-change: box-shadow;
   }
-  .tracker-card::after, .perf-card::after{
-    content:'';
-    position:absolute; inset:0;
-    border-radius:inherit;
-    padding:2px;
-    background: conic-gradient(from var(--neon-angle), var(--glow-color) 0deg, transparent 100deg, transparent 360deg);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    /* Varias capas de drop-shadow (no una sola) es lo que da el aspecto de
-       tubo de neón de verdad — un solo blur se ve como una línea de color
-       nomás, apilar 3 con distinto radio da el brillo "sangrando" hacia
-       afuera típico del neón. */
-    filter:
-      drop-shadow(0 0 2px var(--glow-color))
-      drop-shadow(0 0 6px var(--glow-color))
-      drop-shadow(0 0 14px var(--glow-color));
-    pointer-events: none;
-  }
-  .perf-card{ position:relative; }
-  /* La "cabeza" de la serpiente — el anillo de arriba (::after) ya da la
-     cola larga que se va apagando, pero por sí sola tiene un ancho parejo.
-     Este div aparte es MÁS GRUESO (padding más grande) y con un arco bien
-     corto y sólido (0°-8°, recién ahí empieza a apagarse) en vez de ir
-     apagándose de a poco desde el principio — así se ve bien marcado como
-     la "cabeza" gruesa adelante de la cola fina. Usa la MISMA variable
-     --neon-angle que el anillo (ver más abajo en JS quién la mueve), así
-     que giran siempre pegadas — no son dos animaciones por separado
-     tratando de ir sincronizadas, son el mismo número. */
-  .neon-head{
-    position:absolute; inset:0;
-    border-radius:inherit;
-    padding:5px;
-    background: conic-gradient(from var(--neon-angle), var(--glow-color) 0deg, var(--glow-color) 8deg, transparent 22deg, transparent 360deg);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    filter:
-      drop-shadow(0 0 3px var(--glow-color))
-      drop-shadow(0 0 8px var(--glow-color))
-      drop-shadow(0 0 18px var(--glow-color));
-    pointer-events: none;
+  @keyframes neonPulse{
+    0%, 100% { box-shadow: 0 0 5px -2px var(--glow-color); }
+    50% { box-shadow: 0 0 18px 1px var(--glow-color); }
   }
   .cohete-flame{ transform-box: fill-box; transform-origin: center; animation: cohete-flame-flicker 0.35s ease-in-out infinite; }
   @keyframes cohete-flame-flicker{
@@ -2439,7 +2388,6 @@
     if(perfGrid){
       perfGrid.innerHTML = SETTERS.map(s => `
         <div class="perf-card" data-setter="${s.id}" style="border-color:${s.color};--glow-color:${s.color};">
-          <div class="neon-head"></div>
           <h4><span class="cdot" style="background:${s.color}"></span>${s.nombre}</h4>
           <div class="perf-row"><span>Seguimientos</span><span id="pf-${s.id}-seg">—</span></div>
           <div class="perf-row"><span>Cash</span><span id="pf-${s.id}-cash">—</span></div>
@@ -2471,39 +2419,6 @@
     }
   }
   renderSettersDom();
-
-  // Las tarjetas ".tracker-card" son estáticas (están en el HTML, no se
-  // arman en JS como las ".perf-card" de arriba) — a todas se les agrega
-  // acá una sola vez, al arrancar, el punto de luz que recorre el borde
-  // (ver ".neon-head" en el CSS). Sus valores se siguen actualizando por
-  // textContent en elementos internos (ids sueltos), nunca se reemplaza
-  // el contenedor entero, así que este div agregado no se pierde solo.
-  document.querySelectorAll('.tracker-card').forEach(card => {
-    if(!card.querySelector(':scope > .neon-head')) card.insertAdjacentHTML('beforeend', '<div class="neon-head"></div>');
-  });
-
-  // Mover --neon-angle a mano con requestAnimationFrame, no con
-  // @keyframes/CSS animation — se probó animar la custom property (que es
-  // lo que hace girar el anillo y la cabeza de neón) con @property +
-  // @keyframes y quedaba pegada en 0°, sin girar nunca (confirmado en
-  // vivo, dos técnicas distintas de "moverla sola" fallaron igual). Un
-  // rAF que le pisa el valor a mano en cada cuadro SÍ o SÍ actualiza el
-  // estilo, no depende de que el motor de animaciones del navegador ande
-  // bien con esta combinación puntual de @property + máscara + filtro.
-  // Se lo pone en el <html> (hereda hacia abajo, --neon-angle tiene
-  // inherits:true) en vez de en cada tarjeta suelta, para un solo
-  // querySelector... en realidad ni hace falta: como hereda, ALCANZA con
-  // setearla una sola vez arriba de todo.
-  (function animarNeon(){
-    const root = document.documentElement;
-    const DURACION_MS = 4200;
-    function tick(ts){
-      const angulo = (ts % DURACION_MS) / DURACION_MS * 360;
-      root.style.setProperty('--neon-angle', angulo + 'deg');
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  })();
 
   // Movidas acá arriba de todo (mismo motivo que setterSeries más abajo): si algo
   // corre temprano (restaurar sesión, un click programático, etc.) y necesita
@@ -6262,7 +6177,6 @@
     const metaMensualPorSetter = META_FACTURACION / settersActivosParaMeta.length;
     document.getElementById('me-setters-grid').innerHTML = settersActivosParaMeta.map(k => `
       <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
-        <div class="neon-head"></div>
         <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
         <div class="perf-row"><span>Meta mensual</span><span>${fmtMoney(metaMensualPorSetter)}</span></div>
