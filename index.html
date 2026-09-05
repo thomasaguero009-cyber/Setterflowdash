@@ -489,18 +489,49 @@
     content:'';
     position:absolute; inset:0;
     border-radius:inherit;
-    padding:2.5px;
+    padding:2px;
     background: conic-gradient(from var(--neon-angle), var(--glow-color) 0deg, transparent 85deg, transparent 360deg);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    filter: drop-shadow(0 0 6px var(--glow-color));
+    /* Varias capas de drop-shadow (no una sola) es lo que da el aspecto de
+       tubo de neón de verdad — un solo blur se ve como una línea de color
+       nomás, apilar 3 con distinto radio da el brillo "sangrando" hacia
+       afuera típico del neón. */
+    filter:
+      drop-shadow(0 0 2px var(--glow-color))
+      drop-shadow(0 0 6px var(--glow-color))
+      drop-shadow(0 0 14px var(--glow-color));
     animation: neonSnake 4.2s linear infinite;
     pointer-events: none;
   }
   .perf-card{ position:relative; }
   @keyframes neonSnake{
     to { --neon-angle: 360deg; }
+  }
+  /* La "cabeza" de la serpiente — el anillo de arriba ya da la cola que se
+     apaga, pero por sí solo tiene un ancho parejo. Este punto aparte, más
+     grande y con más glow, es lo que se ve "más grueso adelante": viaja
+     por el mismo contorno redondeado de la tarjeta (offset-path calca el
+     border-radius real) sincronizado con la misma duración y velocidad
+     constante que el giro del anillo, así queda pegado a la punta de la
+     cola en vez de ir por su cuenta. */
+  .neon-head{
+    position:absolute; top:-4px; left:-4px;
+    width:8px; height:8px;
+    border-radius:50%;
+    background: var(--glow-color);
+    offset-path: inset(4px round 16px);
+    offset-distance: 0%;
+    animation: neonHeadMove 4.2s linear infinite;
+    filter:
+      drop-shadow(0 0 3px var(--glow-color))
+      drop-shadow(0 0 8px var(--glow-color))
+      drop-shadow(0 0 18px var(--glow-color));
+    pointer-events: none;
+  }
+  @keyframes neonHeadMove{
+    to { offset-distance: 100%; }
   }
   .cohete-flame{ transform-box: fill-box; transform-origin: center; animation: cohete-flame-flicker 0.35s ease-in-out infinite; }
   @keyframes cohete-flame-flicker{
@@ -2413,6 +2444,7 @@
     if(perfGrid){
       perfGrid.innerHTML = SETTERS.map(s => `
         <div class="perf-card" data-setter="${s.id}" style="border-color:${s.color};--glow-color:${s.color};">
+          <div class="neon-head"></div>
           <h4><span class="cdot" style="background:${s.color}"></span>${s.nombre}</h4>
           <div class="perf-row"><span>Seguimientos</span><span id="pf-${s.id}-seg">—</span></div>
           <div class="perf-row"><span>Cash</span><span id="pf-${s.id}-cash">—</span></div>
@@ -2444,6 +2476,16 @@
     }
   }
   renderSettersDom();
+
+  // Las tarjetas ".tracker-card" son estáticas (están en el HTML, no se
+  // arman en JS como las ".perf-card" de arriba) — a todas se les agrega
+  // acá una sola vez, al arrancar, el punto de luz que recorre el borde
+  // (ver ".neon-head" en el CSS). Sus valores se siguen actualizando por
+  // textContent en elementos internos (ids sueltos), nunca se reemplaza
+  // el contenedor entero, así que este div agregado no se pierde solo.
+  document.querySelectorAll('.tracker-card').forEach(card => {
+    if(!card.querySelector(':scope > .neon-head')) card.insertAdjacentHTML('beforeend', '<div class="neon-head"></div>');
+  });
 
   // Movidas acá arriba de todo (mismo motivo que setterSeries más abajo): si algo
   // corre temprano (restaurar sesión, un click programático, etc.) y necesita
@@ -6202,6 +6244,7 @@
     const metaMensualPorSetter = META_FACTURACION / settersActivosParaMeta.length;
     document.getElementById('me-setters-grid').innerHTML = settersActivosParaMeta.map(k => `
       <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
+        <div class="neon-head"></div>
         <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
         <div class="perf-row"><span>Meta mensual</span><span>${fmtMoney(metaMensualPorSetter)}</span></div>
