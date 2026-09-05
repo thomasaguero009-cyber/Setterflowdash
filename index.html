@@ -6168,16 +6168,20 @@
     // Si ya no quedan días en el mes pero falta plata, no hay forma de
     // repartirlo "por día" — se muestra todo lo que falta de una, no se
     // divide por cero.
+    // Repartido solo entre los setters activos (ver esSetterActivo) — un
+    // setter que ya no trabaja más (ej. Franco) no debería llevarse una
+    // porción de la meta del equipo que nunca va a poder cumplir.
+    const settersActivosParaMeta = SETTER_KEYS.filter(esSetterActivo);
     const metaDiariaEquipo = diasRestantes > 0 ? restante / diasRestantes : restante;
-    const metaDiariaPorSetter = metaDiariaEquipo / SETTER_KEYS.length;
+    const metaDiariaPorSetter = metaDiariaEquipo / settersActivosParaMeta.length;
 
     document.getElementById('me-meta-diaria-equipo').textContent = fmtMoney(metaDiariaEquipo);
     document.getElementById('me-dias-fin-ano').textContent = diasRestantes > 0
       ? `para lo que queda del mes (${diasRestantes} días restantes)`
       : 'último día del mes';
 
-    const metaMensualPorSetter = META_FACTURACION / SETTER_KEYS.length;
-    document.getElementById('me-setters-grid').innerHTML = SETTER_KEYS.map(k => `
+    const metaMensualPorSetter = META_FACTURACION / settersActivosParaMeta.length;
+    document.getElementById('me-setters-grid').innerHTML = settersActivosParaMeta.map(k => `
       <div class="perf-card" data-setter="${k}" style="border-color:${colors[k]};--glow-color:${colors[k]};">
         <h4><span class="cdot" style="background:${colors[k]}"></span>${getDisplayName(k)}</h4>
         <div class="perf-row"><span>Meta diaria</span><span>${fmtMoney(metaDiariaPorSetter)}</span></div>
