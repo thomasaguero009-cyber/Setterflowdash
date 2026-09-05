@@ -469,13 +469,38 @@
   .tracker-card.cash{ --glow-color: #f0a63f; }
   .tracker-card.seg{ --glow-color: var(--green); }
   .tracker-card.organico{ --glow-color: var(--green); }
-  .tracker-card, .perf-card{
-    animation: neonPulse 4.2s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite;
-    will-change: box-shadow;
+  /* Luz de neón tipo "serpiente": en vez de que el brillo del borde entero
+     prenda/apague parejo (neonPulse, versión vieja), ahora es un punto
+     brillante que recorre el borde en sentido horario dejando una cola que
+     se va apagando detrás — como si algo hubiera pasado por ahí. Técnica:
+     un conic-gradient (bien cargado del lado "0°", transparente del lado
+     opuesto) rotando vía la variable --neon-angle, recortado a un anillo
+     fino con la máscara padding-box/content-box de siempre para este tipo
+     de efecto ("border beam"). @property es lo que permite que el ángulo
+     SE PUEDA animar suave (sin @property, un custom property no numérico
+     no interpola, saltaría de golpe en vez de girar).
+  */
+  @property --neon-angle{
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
   }
-  @keyframes neonPulse{
-    0%, 100% { box-shadow: 0 0 5px -2px var(--glow-color); }
-    50% { box-shadow: 0 0 18px 1px var(--glow-color); }
+  .tracker-card::after, .perf-card::after{
+    content:'';
+    position:absolute; inset:0;
+    border-radius:inherit;
+    padding:2.5px;
+    background: conic-gradient(from var(--neon-angle), var(--glow-color) 0deg, transparent 85deg, transparent 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    filter: drop-shadow(0 0 6px var(--glow-color));
+    animation: neonSnake 4.2s linear infinite;
+    pointer-events: none;
+  }
+  .perf-card{ position:relative; }
+  @keyframes neonSnake{
+    to { --neon-angle: 360deg; }
   }
   .cohete-flame{ transform-box: fill-box; transform-origin: center; animation: cohete-flame-flicker 0.35s ease-in-out infinite; }
   @keyframes cohete-flame-flicker{
