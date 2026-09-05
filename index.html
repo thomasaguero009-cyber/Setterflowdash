@@ -2360,10 +2360,13 @@
     { id: 'thomi',   nombre: 'Thomi',   color: '#5b9bf0' },
     { id: 'flor',    nombre: 'Flor',    color: '#f0568f' },
     { id: 'valeria', nombre: 'Valeria', color: '#a978f0' },
-    { id: 'franco',  nombre: 'Franco',  color: '#6b7280' }, // gris apagado — ya no trabaja más, se deja el historial pero sin color propio
+    { id: 'franco',  nombre: 'Franco',  color: '#6b7280', activo: false }, // ya no trabaja más — gris apagado, se deja el historial pero no se le recuerda cargar datos nuevos (ver checkMissingYesterday)
     { id: 'paula',   nombre: 'Pau',     color: '#f28fb8' } // rosa pastel bien marcado (no confundir con blanco), distinto del rosa fuerte de Flor
   ];
   const SETTER_KEYS = SETTERS.map(s => s.id); // se deja el nombre igual — el resto del script ya lo usa así
+  // true salvo que la entrada tenga "activo: false" explícito (setters que
+  // ya no trabajan más, ej. Franco) — por defecto todos activos.
+  const esSetterActivo = k => SETTERS.find(s => s.id === k)?.activo !== false;
 
   // Arma los chips de filtro, las tarjetas de "Performance individual" y
   // las tarjetas de carga manual a partir de SETTERS — antes estaban
@@ -5119,7 +5122,13 @@
   }
 
   function renderRanked(containerId, totals, metric, fmt){
-    const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
+    // Si alguien no hizo nada en el período que se está mirando (0 en esta
+    // métrica), no aparece en el ranking — pedido explícito: un setter que
+    // dejó de trabajar (ej. Franco) no debería seguir apareciendo con "$0"
+    // en el ranking de un día en el que no hizo nada. Esto es general,
+    // no algo hardcodeado para una persona puntual: aplica a cualquiera.
+    const sorted = [...SETTER_KEYS].filter(k => totals[k][metric] > 0).sort((a,b)=>totals[b][metric]-totals[a][metric]);
+    if(!sorted.length){ document.getElementById(containerId).innerHTML = '<div class="rank-row" style="opacity:.5;justify-content:center;">Sin actividad todavía</div>'; return; }
     const max = totals[sorted[0]][metric] || 1;
     const posLabels = ['1°','2°','3°','4°'];
     const el = document.getElementById(containerId);
@@ -6563,7 +6572,13 @@
 
   function updatePerformanceCards(){
     SETTER_KEYS.forEach(k => {
+      const card = document.querySelector(`.perf-card[data-setter="${k}"]`);
       const d = recuentoAyer[k];
+      // Si no hizo nada ayer (0 en las 4 métricas), la tarjeta entera se
+      // oculta en vez de mostrar "$0"/"0h" — mismo criterio que el
+      // ranking (ver renderRanked): un setter inactivo ese día no aparece.
+      const sinActividad = !d || (!d.seguimientos && !d.cash && !d.horas && !d.agendas);
+      if(card) card.style.display = sinActividad ? 'none' : '';
       if(!d) return;
       document.getElementById(`pf-${k}-seg`).textContent = fmtInt(d.seguimientos);
       document.getElementById(`pf-${k}-cash`).textContent = fmtMoney(d.cash);
@@ -6579,7 +6594,7 @@
 
   function checkMissingYesterday(){
     const banner = document.getElementById('reminderBanner');
-    const missing = SETTER_KEYS.filter(k => {
+    const missing = SETTER_KEYS.filter(esSetterActivo).filter(k => {
       const d = recuentoAyer[k];
       if(!d) return true;
       return !(d.seguimientos || d.cash || d.horas || d.agendas);
