@@ -2531,6 +2531,19 @@
     try{ localStorage.setItem('setterflow-theme', isLight ? 'light' : 'dark'); } catch(e){}
   });
 
+  // Nav rápida de arriba del Tracker: en vez de dejar que el navegador
+  // alinee la sección arriba de todo (comportamiento por defecto de los
+  // anchors), se centra en la pantalla — a pedido, para que no quede
+  // pegada contra el borde superior.
+  document.querySelectorAll('.quick-nav-btn').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      const id = this.getAttribute('href').slice(1);
+      const target = document.getElementById(id);
+      if(target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
   // ===== MONTH SELECTOR LANDING =====
   const msSelectBox = document.getElementById('msSelectBox');
   const msDropdown = document.getElementById('msDropdown');
