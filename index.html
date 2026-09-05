@@ -5122,13 +5122,7 @@
   }
 
   function renderRanked(containerId, totals, metric, fmt){
-    // Si alguien no hizo nada en el período que se está mirando (0 en esta
-    // métrica), no aparece en el ranking — pedido explícito: un setter que
-    // dejó de trabajar (ej. Franco) no debería seguir apareciendo con "$0"
-    // en el ranking de un día en el que no hizo nada. Esto es general,
-    // no algo hardcodeado para una persona puntual: aplica a cualquiera.
-    const sorted = [...SETTER_KEYS].filter(k => totals[k][metric] > 0).sort((a,b)=>totals[b][metric]-totals[a][metric]);
-    if(!sorted.length){ document.getElementById(containerId).innerHTML = '<div class="rank-row" style="opacity:.5;justify-content:center;">Sin actividad todavía</div>'; return; }
+    const sorted = [...SETTER_KEYS].sort((a,b)=>totals[b][metric]-totals[a][metric]);
     const max = totals[sorted[0]][metric] || 1;
     const posLabels = ['1°','2°','3°','4°'];
     const el = document.getElementById(containerId);
