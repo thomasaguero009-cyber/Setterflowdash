@@ -6869,10 +6869,15 @@
     // se compara "lo que va de esta semana" contra EL MISMO tramo de
     // días de las semanas anteriores — mismo corte, comparación pareja.
     const semanaActual = rangoSemanaVieJue(refDate);
-    const refDateDia = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate(), 0, 0, 0);
     const juevesActualDia = new Date(semanaActual.fin.getFullYear(), semanaActual.fin.getMonth(), semanaActual.fin.getDate(), 0, 0, 0);
     const semanaYaCerro = juevesActualDia <= latestLoadedDate;
-    const diasTranscurridos = semanaYaCerro ? 7 : Math.round((refDateDia - semanaActual.inicio) / 86400000) + 1;
+    // OJO: el corte siempre se calcula contra HOY (latestLoadedDate), NUNCA
+    // contra refDate (el día puntual que se está mirando/hovereando) — así
+    // la semana entera da SIEMPRE el mismo total y la misma clasificación
+    // sin importar qué día suyo estés mirando (se mide por semana, no por
+    // día: no puede dar "Emergencia" en un día de esa semana y "Normal" en
+    // otro de la misma semana).
+    const diasTranscurridos = semanaYaCerro ? 7 : Math.round((latestLoadedDate - semanaActual.inicio) / 86400000) + 1;
 
     function finAlCorte(inicioSemana){
       return new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + diasTranscurridos - 1, 23, 59, 59);
