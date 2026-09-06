@@ -1977,7 +1977,30 @@
           </div>
 
           <div style="margin-top:24px;">
-            <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📡 Fuentes <span style="text-transform:none;font-weight:400;">(este mes)</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">📡 Fuentes</div>
+              <div style="position:relative;">
+                <button type="button" id="vpFuenteCalBtn" class="save-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-weight:600;text-transform:none;letter-spacing:normal;">
+                  📅 <span id="vpFuenteCalLabel">Este mes</span>
+                </button>
+                <div id="vpFuenteCalPopup" class="fuente-cal-popup" style="display:none;">
+                  <div class="fuente-cal-header">
+                    <button type="button" id="vpFuenteCalPrev" class="fuente-cal-nav">‹</button>
+                    <span id="vpFuenteCalMesLabel"></span>
+                    <button type="button" id="vpFuenteCalNext" class="fuente-cal-nav">›</button>
+                  </div>
+                  <div class="fuente-cal-dow">
+                    <span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span>
+                  </div>
+                  <div class="fuente-cal-grid" id="vpFuenteCalGrid"></div>
+                  <div class="fuente-cal-quick">
+                    <button type="button" class="vp-fuente-cal-quickbtn" data-quick="hoy">Hoy</button>
+                    <button type="button" class="vp-fuente-cal-quickbtn" data-quick="mes">Este mes</button>
+                  </div>
+                  <button type="button" id="vpFuenteCalAplicar" class="save-btn" style="width:100%;margin-top:10px;justify-content:center;">Aplicar</button>
+                </div>
+              </div>
+            </div>
             <div class="rank-toggle vp-toggle" id="vpFuenteToggle">
               <div class="rt-btn active" data-vp-fuente-metric="agendas">Agendas</div>
               <div class="rt-btn" data-vp-fuente-metric="cash">Ventas</div>
@@ -2638,6 +2661,7 @@
     // estaba activo cuando cargó la página (el default) — hay que
     // recalcularlo ahora que ya se sabe el mes real que se eligió acá.
     inicializarFechasFuente();
+    inicializarFechasVpFuente();
     inicializarFechasVentas();
     inicializarFechasEstrellas();
     window.scrollTo({top:0});
@@ -5535,6 +5559,140 @@
     drawFuentePanel();
   });
 
+  // ===== Calendario de "Fuentes" DEL PERFIL INDIVIDUAL — mismo mecanismo
+  // que el de Fuentes principal de arriba (copiado a propósito, no
+  // generalizado, mismo patrón que ya usan Ranking/Ventas/Estrellas cada
+  // uno con su propio estado), pero con su PROPIO rango independiente. =====
+  let vpFuenteRango = { desde: null, hasta: null };
+  let vpFuenteCalMes = new Date();
+  let vpFuenteCalTemp = { desde: null, hasta: null };
+
+  function actualizarVpFuenteLabelCalendario(){
+    const label = document.getElementById('vpFuenteCalLabel');
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    if(fuenteMismoDia(vpFuenteRango.desde, primerDiaMes) && fuenteMismoDia(vpFuenteRango.hasta, ultimoDiaMes)){
+      label.textContent = 'Este mes';
+    } else if(fuenteMismoDia(vpFuenteRango.desde, vpFuenteRango.hasta)){
+      label.textContent = fuenteDDMMYYYY(vpFuenteRango.desde);
+    } else {
+      label.textContent = fuenteDDMMYYYY(vpFuenteRango.desde) + ' → ' + fuenteDDMMYYYY(vpFuenteRango.hasta);
+    }
+  }
+
+  function inicializarFechasVpFuente(){
+    const yyyy = Number(ACTIVE_MONTH_YYYY);
+    const mm = Number(ACTIVE_MONTH_MM) - 1;
+    const primerDiaMes = new Date(yyyy, mm, 1);
+    const ultimoDiaMes = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+    vpFuenteRango = { desde: primerDiaMes, hasta: ultimoDiaMes };
+    vpFuenteCalMes = new Date(yyyy, mm, 1);
+    actualizarVpFuenteLabelCalendario();
+  }
+
+  function renderVpFuenteCalendarioPopup(){
+    document.getElementById('vpFuenteCalMesLabel').textContent = MESES_FUENTE[vpFuenteCalMes.getMonth()] + ' ' + vpFuenteCalMes.getFullYear();
+    const grid = document.getElementById('vpFuenteCalGrid');
+    const primerDia = new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth(), 1);
+    const startOffset = primerDia.getDay();
+    const diasEnMes = new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth()+1, 0).getDate();
+    const diasMesAnterior = new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth(), 0).getDate();
+    const hoy = new Date();
+
+    const celdas = [];
+    for(let i=startOffset-1;i>=0;i--){
+      celdas.push({ dia: diasMesAnterior - i, fecha: new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth()-1, diasMesAnterior - i), outside: true });
+    }
+    for(let d=1; d<=diasEnMes; d++){
+      celdas.push({ dia: d, fecha: new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth(), d), outside: false });
+    }
+    let siguienteDia = 1;
+    while(celdas.length < 42){
+      celdas.push({ dia: siguienteDia, fecha: new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth()+1, siguienteDia), outside: true });
+      siguienteDia++;
+    }
+
+    const desde = vpFuenteCalTemp.desde, hasta = vpFuenteCalTemp.hasta;
+    grid.innerHTML = celdas.map(c => {
+      const classes = ['fuente-cal-day'];
+      if(c.outside) classes.push('outside');
+      if(fuenteMismoDia(c.fecha, hoy)) classes.push('today');
+      if(desde && hasta){
+        if(c.fecha >= desde && c.fecha <= hasta) classes.push('in-range');
+        if(fuenteMismoDia(c.fecha, desde)) classes.push('range-start');
+        if(fuenteMismoDia(c.fecha, hasta)) classes.push('range-end');
+      } else if(desde && fuenteMismoDia(c.fecha, desde)){
+        classes.push('range-start', 'range-end');
+      }
+      return `<button type="button" class="${classes.join(' ')}" data-time="${c.fecha.getTime()}">${c.dia}</button>`;
+    }).join('');
+  }
+
+  function abrirVpFuenteCalendarioPopup(){
+    vpFuenteCalMes = new Date(vpFuenteRango.desde.getFullYear(), vpFuenteRango.desde.getMonth(), 1);
+    vpFuenteCalTemp = { desde: vpFuenteRango.desde, hasta: vpFuenteRango.hasta };
+    renderVpFuenteCalendarioPopup();
+    document.getElementById('vpFuenteCalPopup').style.display = 'block';
+  }
+
+  function cerrarVpFuenteCalendarioPopup(){
+    document.getElementById('vpFuenteCalPopup').style.display = 'none';
+  }
+
+  document.getElementById('vpFuenteCalBtn').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const popup = document.getElementById('vpFuenteCalPopup');
+    if(popup.style.display === 'block') cerrarVpFuenteCalendarioPopup();
+    else abrirVpFuenteCalendarioPopup();
+  });
+  document.getElementById('vpFuenteCalPopup').addEventListener('click', (ev) => ev.stopPropagation());
+  document.addEventListener('click', cerrarVpFuenteCalendarioPopup);
+
+  document.getElementById('vpFuenteCalPrev').addEventListener('click', () => {
+    vpFuenteCalMes = new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth()-1, 1);
+    renderVpFuenteCalendarioPopup();
+  });
+  document.getElementById('vpFuenteCalNext').addEventListener('click', () => {
+    vpFuenteCalMes = new Date(vpFuenteCalMes.getFullYear(), vpFuenteCalMes.getMonth()+1, 1);
+    renderVpFuenteCalendarioPopup();
+  });
+
+  document.getElementById('vpFuenteCalGrid').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.fuente-cal-day');
+    if(!btn) return;
+    const fecha = new Date(Number(btn.dataset.time));
+    if(!vpFuenteCalTemp.desde || (vpFuenteCalTemp.desde && vpFuenteCalTemp.hasta)){
+      vpFuenteCalTemp = { desde: fecha, hasta: null };
+    } else if(fecha < vpFuenteCalTemp.desde){
+      vpFuenteCalTemp = { desde: fecha, hasta: vpFuenteCalTemp.desde };
+    } else {
+      vpFuenteCalTemp = { desde: vpFuenteCalTemp.desde, hasta: fecha };
+    }
+    renderVpFuenteCalendarioPopup();
+  });
+
+  document.querySelectorAll('.vp-fuente-cal-quickbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hoy = new Date();
+      const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
+      vpFuenteCalTemp = btn.dataset.quick === 'hoy'
+        ? { desde: hoy, hasta: hoy }
+        : { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
+      vpFuenteCalMes = new Date(vpFuenteCalTemp.desde.getFullYear(), vpFuenteCalTemp.desde.getMonth(), 1);
+      renderVpFuenteCalendarioPopup();
+    });
+  });
+
+  document.getElementById('vpFuenteCalAplicar').addEventListener('click', () => {
+    if(!vpFuenteCalTemp.desde) return;
+    vpFuenteRango = { desde: vpFuenteCalTemp.desde, hasta: vpFuenteCalTemp.hasta || vpFuenteCalTemp.desde };
+    actualizarVpFuenteLabelCalendario();
+    cerrarVpFuenteCalendarioPopup();
+    if(vpCurrentSetter) drawVpFuentePanel(vpCurrentSetter);
+  });
+
   // ===== Calendario de "Ventas" — mismo mecanismo que el de Fuentes de
   // arriba (copiado a propósito, no generalizado, siguiendo el mismo
   // patrón que ya usan Ranking y Fuentes cada uno con su propio estado) =====
@@ -5819,10 +5977,14 @@
   // Setter con su nombre — van a "fuentesPorSetter", usado en "Ver perfil").
   // Son la MISMA plata contada dos veces a distinto nivel de detalle, por
   // eso nunca hay que sumar ambos grupos juntos, cada uno se usa aparte.
-  async function fetchFuenteRange(){
-    if(!fuenteRango.desde || !fuenteRango.hasta) return { fuentes: {}, fuentesPorSetter: {} };
-    const fecha = fuenteDDMMYYYY(fuenteRango.desde);
-    const fechaHasta = fuenteDDMMYYYY(fuenteRango.hasta);
+  // rango: opcional — por defecto usa el rango de la sección "Fuentes"
+  // principal (fuenteRango); el panel de Fuentes individual (Ver perfil)
+  // pasa el suyo propio (vpFuenteRango) para poder filtrar por su cuenta.
+  async function fetchFuenteRange(rango){
+    rango = rango || fuenteRango;
+    if(!rango.desde || !rango.hasta) return { fuentes: {}, fuentesPorSetter: {} };
+    const fecha = fuenteDDMMYYYY(rango.desde);
+    const fechaHasta = fuenteDDMMYYYY(rango.hasta);
     const cacheKey = fecha + '-' + fechaHasta;
 
     if(fuenteCache && fuenteCache.key === cacheKey && (Date.now() - fuenteCache.ts) < HYROS_CACHE_MS){
@@ -5831,8 +5993,8 @@
 
     const text = await safeFetchText(FUENTES_SHEET_URL);
     const filas = parseFuentesSheet(text);
-    const desdeD = new Date(fuenteRango.desde.getFullYear(), fuenteRango.desde.getMonth(), fuenteRango.desde.getDate(), 0, 0, 0);
-    const hastaD = new Date(fuenteRango.hasta.getFullYear(), fuenteRango.hasta.getMonth(), fuenteRango.hasta.getDate(), 23, 59, 59);
+    const desdeD = new Date(rango.desde.getFullYear(), rango.desde.getMonth(), rango.desde.getDate(), 0, 0, 0);
+    const hastaD = new Date(rango.hasta.getFullYear(), rango.hasta.getMonth(), rango.hasta.getDate(), 23, 59, 59);
 
     const fuentes = {};
     const fuentesPorSetter = {};
@@ -5888,9 +6050,11 @@
   }
 
   // Mismo panel de "Fuentes" pero filtrado a UN solo setter (usado dentro
-  // de "Ver perfil"). Reutiliza fetchFuenteRange() — el rango de fechas ya
-  // viene de la sección "Fuentes" principal (por defecto, este mes) — así
-  // que no pega un pedido extra a Hyros, solo lee fuentesPorSetter[setterKey].
+  // de "Ver perfil"), con su PROPIO rango de fechas (vpFuenteRango, más
+  // abajo) — independiente del que tenga elegido la sección "Fuentes"
+  // principal. Reutiliza fetchFuenteRange(rango) pasándole el suyo, así
+  // no hace falta pegarle un fetch aparte a la hoja (mismo CSV, ya
+  // cacheado por safeFetchText).
   let vpCurrentSetter = null;
   let vpMetricActual = 'agendas';
   let vpFuenteMetricActual = 'agendas';
@@ -5899,7 +6063,7 @@
     const panel = document.getElementById('vpFuentesPanel');
     if(!panel) return;
     panel.innerHTML = '<div class="rank-loading">Cargando fuentes…</div>';
-    fetchFuenteRange().then(resp => {
+    fetchFuenteRange(vpFuenteRango).then(resp => {
       const fuentes = (resp.fuentesPorSetter && resp.fuentesPorSetter[setterKey]) || {};
       const keys = Object.keys(fuentes);
       if(!keys.length){
@@ -6667,6 +6831,7 @@
   })();
 
   inicializarFechasFuente();
+  inicializarFechasVpFuente();
   inicializarFechasVentas();
   inicializarFechasEstrellas();
 
