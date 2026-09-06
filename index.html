@@ -6775,19 +6775,6 @@
     return rangoSemanaVieJue(inicioAnt);
   }
 
-  // El último jueves con datos cargados (día de semana 4) — el punto de
-  // Condición en el gráfico se ancla SIEMPRE ahí (la última semana YA
-  // cerrada), nunca en un día suelto que no sea jueves.
-  function ultimoJuevesConDatos(seriesObj, setterKey){
-    const serie = seriesObj && (seriesObj[setterKey || 'thomi']);
-    const dates = serie ? serie.dates : [];
-    let ultimo = null;
-    dates.forEach(dStr => {
-      const d = parseDDMMYYYY(dStr);
-      if(d instanceof Date && !isNaN(d) && d.getDay() === 4 && (!ultimo || d > ultimo)) ultimo = d;
-    });
-    return ultimo;
-  }
 
   // Agrupa las fechas diarias de setterSeries en bloques Vie-Jue — para
   // la vista "Semanal" de los gráficos de Métricas y del perfil
@@ -7010,29 +6997,6 @@
     const seriesToPlot = [...visibleKeys];
     if(activeSeries.has('todos')) seriesToPlot.push('todos');
 
-    // Índice del punto donde se ancla el marcador de "Condición semanal"
-    // de una serie: el jueves 23:59 en que cierra esa semana (recién ahí
-    // el número queda firme y no se puede seguir cargando/corrigiendo) —
-    // si ese jueves todavía no llegó (semana en curso), se ancla al
-    // último día cargado, así que va acompañando el avance de la semana
-    // hasta terminar posado justo en el jueves cuando llega.
-    function idxParaCondicion(semanaActual){
-      if(esSemanal){
-        const idx = semanas.findIndex(s => s.fin.getTime() === semanaActual.fin.getTime());
-        return idx === -1 ? n-1 : idx;
-      }
-      const juevesTime = semanaActual.fin.getTime();
-      let idx = -1;
-      diasDates.forEach((dStr,i) => {
-        const d = parseDDMMYYYY(dStr);
-        if(d instanceof Date && !isNaN(d)){
-          const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
-          if(t === juevesTime) idx = i;
-        }
-      });
-      return idx === -1 ? n-1 : idx;
-    }
-
     seriesToPlot.forEach(key => {
       const vals = key === 'todos' ? totals : dates.map((_,i)=>getVal(key,i));
       const pts = vals.map((v,i) => [xAt(i), yAt(v)]);
@@ -7056,11 +7020,22 @@
       // Inexistencia — ver calcularCondicionSemana): UN solo punto, del
       // equipo completo, y solo sobre la línea de "todos" — no una por
       // cada setter.
+      // Punto de "Condición semanal" en CADA jueves (o en cada punto, si
+      // la vista es Semanal — ahí cada punto YA es una semana entera que
+      // cierra en jueves) — cada uno con el color de SU PROPIA semana,
+      // no un solo punto para todo el gráfico.
       if(key === 'todos'){
-        const ultimoJueves = ultimoJuevesConDatos(setterSeriesCompleto);
-        const rCond = ultimoJueves ? calcularCondicionSemana(campoActual, ultimoJueves, null, setterSeriesCompleto) : null;
-        if(rCond && n){
-          const idx = idxParaCondicion(rCond.semanaActual);
+        for(let idx = 0; idx < n; idx++){
+          let refDateParaCond = null;
+          if(esSemanal){
+            refDateParaCond = semanas[idx].fin;
+          } else {
+            const d = parseDDMMYYYY(dates[idx]);
+            if(d instanceof Date && !isNaN(d) && d.getDay() === 4) refDateParaCond = d;
+          }
+          if(!refDateParaCond) continue;
+          const rCond = calcularCondicionSemana(campoActual, refDateParaCond, null, setterSeriesCompleto);
+          if(!rCond) continue;
           const color = CONDICIONES_INFO[rCond.condicion].color;
           const [px, py] = pts[idx];
           const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -7200,28 +7175,21 @@
       svg.appendChild(c);
     });
 
-    // Punto de "Condición semanal" de este setter — mismo criterio que el
-    // gráfico general de Métricas: se ancla al jueves 23:59 en que cierra
-    // la semana (recién ahí el número queda firme); mientras la semana
-    // está en curso y ese jueves todavía no llegó, sigue el último día
-    // cargado hasta terminar posado justo en el jueves cuando pasa.
-    const ultimoJuevesVp = ultimoJuevesConDatos(setterSeriesCompleto, setterKey);
-    const rCondVp = ultimoJuevesVp ? calcularCondicionSemana(vpMetricActual, ultimoJuevesVp, setterKey, setterSeriesCompleto) : null;
-    if(rCondVp && n){
-      let idx = -1;
+    // Punto de "Condición semanal" de este setter en CADA jueves (o en
+    // cada punto si la vista es Semanal, donde cada punto ya es una
+    // semana que cierra en jueves) — mismo criterio que el gráfico
+    // general de Métricas.
+    for(let idx = 0; idx < n; idx++){
+      let refDateVp = null;
       if(esSemanalVp){
-        idx = semanasVp.findIndex(sem => sem.fin.getTime() === rCondVp.semanaActual.fin.getTime());
+        refDateVp = semanasVp[idx].fin;
       } else {
-        const juevesTime = rCondVp.semanaActual.fin.getTime();
-        diasDates.forEach((dStr,i) => {
-          const d = parseDDMMYYYY(dStr);
-          if(d instanceof Date && !isNaN(d)){
-            const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59).getTime();
-            if(t === juevesTime) idx = i;
-          }
-        });
+        const d = parseDDMMYYYY(dates[idx]);
+        if(d instanceof Date && !isNaN(d) && d.getDay() === 4) refDateVp = d;
       }
-      if(idx === -1) idx = n-1;
+      if(!refDateVp) continue;
+      const rCondVp = calcularCondicionSemana(vpMetricActual, refDateVp, setterKey, setterSeriesCompleto);
+      if(!rCondVp) continue;
       const condColor = CONDICIONES_INFO[rCondVp.condicion].color;
       const [px, py] = pts[idx];
       const halo = document.createElementNS('http://www.w3.org/2000/svg','circle');
