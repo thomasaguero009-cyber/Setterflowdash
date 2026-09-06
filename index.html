@@ -6775,6 +6775,20 @@
     return rangoSemanaVieJue(inicioAnt);
   }
 
+  // El último jueves con datos cargados (día de semana 4) — el punto de
+  // Condición en el gráfico se ancla SIEMPRE ahí (la última semana YA
+  // cerrada), nunca en un día suelto que no sea jueves.
+  function ultimoJuevesConDatos(seriesObj, setterKey){
+    const serie = seriesObj && (seriesObj[setterKey || 'thomi']);
+    const dates = serie ? serie.dates : [];
+    let ultimo = null;
+    dates.forEach(dStr => {
+      const d = parseDDMMYYYY(dStr);
+      if(d instanceof Date && !isNaN(d) && d.getDay() === 4 && (!ultimo || d > ultimo)) ultimo = d;
+    });
+    return ultimo;
+  }
+
   // Agrupa las fechas diarias de setterSeries en bloques Vie-Jue — para
   // la vista "Semanal" de los gráficos de Métricas y del perfil
   // individual. Devuelve un array ordenado cronológicamente, una entrada
@@ -7043,7 +7057,8 @@
       // equipo completo, y solo sobre la línea de "todos" — no una por
       // cada setter.
       if(key === 'todos'){
-        const rCond = calcularCondicionSemana(campoActual, null, null, setterSeriesCompleto);
+        const ultimoJueves = ultimoJuevesConDatos(setterSeriesCompleto);
+        const rCond = ultimoJueves ? calcularCondicionSemana(campoActual, ultimoJueves, null, setterSeriesCompleto) : null;
         if(rCond && n){
           const idx = idxParaCondicion(rCond.semanaActual);
           const color = CONDICIONES_INFO[rCond.condicion].color;
@@ -7190,7 +7205,8 @@
     // la semana (recién ahí el número queda firme); mientras la semana
     // está en curso y ese jueves todavía no llegó, sigue el último día
     // cargado hasta terminar posado justo en el jueves cuando pasa.
-    const rCondVp = calcularCondicionSemana(vpMetricActual, null, setterKey, setterSeriesCompleto);
+    const ultimoJuevesVp = ultimoJuevesConDatos(setterSeriesCompleto, setterKey);
+    const rCondVp = ultimoJuevesVp ? calcularCondicionSemana(vpMetricActual, ultimoJuevesVp, setterKey, setterSeriesCompleto) : null;
     if(rCondVp && n){
       let idx = -1;
       if(esSemanalVp){
