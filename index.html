@@ -1145,6 +1145,26 @@
     background: linear-gradient(135deg, var(--purple), #5a4bd6); color:#fff; border:none;
     padding: 12px 20px; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer; white-space:nowrap;
   }
+  /* ===== Config → lista real de setters (add/eliminar/color) ===== */
+  .team-setter-row{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;
+  }
+  .team-setter-row:last-child{ border-bottom:none; }
+  .team-setter-row.inactivo{ opacity:0.55; }
+  .team-setter-row .left{ display:flex; align-items:center; gap:12px; font-weight:700; min-width:140px; }
+  .team-setter-row .tsr-inactiva-tag{ font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.4px; }
+  .color-palette{ display:flex; gap:6px; flex-wrap:wrap; }
+  .color-swatch{
+    width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+    box-sizing:border-box; padding:0; transition:transform .15s ease, border-color .15s ease;
+  }
+  .color-swatch:hover{ transform:scale(1.15); }
+  .color-swatch.selected{ border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.25); }
+  .reactivar-btn{
+    background:transparent; border:1px solid var(--green); color:var(--green);
+    padding:7px 14px; border-radius:8px; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
   .conn-row{ display:flex; justify-content:space-between; padding:10px 0; font-size:13.5px; border-bottom:1px solid var(--border); }
   .conn-row:last-child{ border-bottom:none; }
   .conn-row span:first-child{ color:var(--text-dim); font-weight:600; }
@@ -2385,14 +2405,13 @@
       <div id="configContent" style="display:none">
         <div class="section-label">⚙️ Configuración del equipo</div>
         <div class="config-panel">
-          <h3>👥 Setters activos</h3>
-          <div class="setter-row"><div class="left"><span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-thomi);display:inline-block"></span>Thomi</div><button class="del-btn">Eliminar</button></div>
-          <div class="setter-row"><div class="left"><span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-flor);display:inline-block"></span>Flor</div><button class="del-btn">Eliminar</button></div>
-          <div class="setter-row"><div class="left"><span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-valeria);display:inline-block"></span>Valeria</div><button class="del-btn">Eliminar</button></div>
-          <div class="setter-row"><div class="left"><span class="cdot" style="width:9px;height:9px;border-radius:50%;background:var(--c-franco);display:inline-block"></span>Franco</div><button class="del-btn">Eliminar</button></div>
-          <div class="add-row">
-            <input type="text" placeholder="Nombre del nuevo setter...">
-            <button class="add-btn">+ Agregar</button>
+          <h3>👥 Setters del equipo</h3>
+          <p style="font-size:12px;color:var(--text-dim);margin:-10px 0 16px;">Los cambios se guardan para todo el equipo (no solo este navegador). "Eliminar" no borra el historial — lo pasa a inactivo, igual que ya está Valeria/Franco.</p>
+          <div id="teamSettersList"><div style="font-size:13px;color:var(--text-dim);">Cargando…</div></div>
+          <div class="add-row" style="flex-wrap:wrap;align-items:center;">
+            <input type="text" id="newSetterNombre" placeholder="Nombre del nuevo setter...">
+            <div id="newSetterPalette" class="color-palette"></div>
+            <button class="add-btn" id="newSetterAddBtn">+ Agregar</button>
           </div>
         </div>
 
@@ -2447,22 +2466,76 @@
   <div class="record-toast" id="recordToast"></div>
 
 <script>
-  // Única fuente de verdad para agregar/sacar gente del equipo en este
-  // dashboard — para dar de alta o baja a alguien, se edita ESTE array
-  // nada más. El "id" tiene que coincidir con la clave que usa el Sheet
-  // (SHEET_NAMES en constants.js / apps_script_setterflow_1.gs), porque
-  // así se cruzan los datos que llegan del sync.
-  const SETTERS = [
+  // Default de fábrica — se usa si todavía nadie guardó nada desde
+  // Configuración → Setters activos. El "id" tiene que coincidir con la
+  // clave que usa el Sheet (SHEET_NAMES en constants.js /
+  // apps_script_setterflow_1.gs), porque así se cruzan los datos del sync.
+  // OJO: agregar a alguien acá (o desde Configuración) lo suma a la lista
+  // del dashboard, pero NO crea las columnas/hoja de ese setter en el
+  // Google Sheet — para que a una persona NUEVA (no solo un cambio de
+  // nombre/color) le empiece a sincronizar datos de verdad, todavía hace
+  // falta darle de alta también del lado del Sheet/Apps Script a mano.
+  const SETTERS_DEFAULT = [
     { id: 'thomi',   nombre: 'Thomi',   color: '#5b9bf0' },
     { id: 'flor',    nombre: 'Flor',    color: '#f0568f' },
     { id: 'valeria', nombre: 'Valeria', color: '#6b7280', activo: false }, // ya no trabaja más — gris apagado, se deja el historial pero no se le recuerda cargar datos nuevos (ver checkMissingYesterday)
     { id: 'franco',  nombre: 'Franco',  color: '#6b7280', activo: false }, // ya no trabaja más — gris apagado, se deja el historial pero no se le recuerda cargar datos nuevos (ver checkMissingYesterday)
     { id: 'paula',   nombre: 'Pau',     color: '#f28fb8' } // rosa pastel bien marcado (no confundir con blanco), distinto del rosa fuerte de Flor
   ];
+  // Paleta de 10 colores para elegir por persona desde Configuración —
+  // mismo criterio visual que los colores ya usados a mano arriba.
+  const SETTER_COLOR_PALETTE = ['#5b9bf0', '#f0568f', '#7c6cf0', '#34d399', '#f0a63f', '#ef4444', '#22d3ee', '#fbbf24', '#f28fb8', '#a78bfa'];
+  const TEAM_SETTERS_CACHE_KEY = 'sf_team_setters_v1';
+
+  // SETTERS arranca leyendo el último valor guardado en ESTE navegador
+  // (instantáneo, sin esperar red) — si nunca se guardó nada todavía, usa
+  // el default de fábrica de arriba. syncTeamSettersFromBackend() (más
+  // abajo) se encarga de traer la versión real del servidor durante la
+  // pantalla de carga y, si difiere de la del caché, recargar la página
+  // UNA vez para que todo (chips, colores, totales por setter, etc. — que
+  // se arman una sola vez al cargar) quede coherente desde el arranque, en
+  // vez de tratar de parchear en caliente cada estructura derivada.
+  function leerSettersCache(){
+    try {
+      const raw = localStorage.getItem(TEAM_SETTERS_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return (Array.isArray(parsed) && parsed.length) ? parsed : SETTERS_DEFAULT.slice();
+    } catch(e) { return SETTERS_DEFAULT.slice(); }
+  }
+  const SETTERS = leerSettersCache();
   const SETTER_KEYS = SETTERS.map(s => s.id); // se deja el nombre igual — el resto del script ya lo usa así
   // true salvo que la entrada tenga "activo: false" explícito (setters que
   // ya no trabajan más, ej. Franco) — por defecto todos activos.
   const esSetterActivo = k => SETTERS.find(s => s.id === k)?.activo !== false;
+
+  // Trae la lista real del servidor (Configuración → Setters activos) y,
+  // si es distinta a la que ya había en caché en ESTE navegador, la guarda
+  // y recarga la página una vez — se llama durante la pantalla de carga
+  // (antes de que se vea nada del dashboard), así el usuario nunca ve un
+  // "flash" de la lista vieja. Si falla la red, sigue con lo que ya había
+  // en caché/default sin romper nada. Tiene un timeout propio (AbortController)
+  // porque un fetch colgado (nunca resuelve NI rechaza) freezaría la
+  // pantalla de carga para siempre — el try/catch solo no alcanza para eso.
+  async function syncTeamSettersFromBackend(){
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 4000);
+    try {
+      const res = await fetch(WRITE_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'getteamsetters' }),
+        signal: ctrl.signal
+      });
+      const data = await res.json().catch(() => null);
+      if (!data || data.status !== 'ok' || !Array.isArray(data.setters) || !data.setters.length) return;
+      const nuevo = JSON.stringify(data.setters);
+      const actual = localStorage.getItem(TEAM_SETTERS_CACHE_KEY);
+      if (nuevo !== actual) {
+        localStorage.setItem(TEAM_SETTERS_CACHE_KEY, nuevo);
+        location.reload();
+      }
+    } catch(e) { /* sin red, timeout, o Apps Script caído — se sigue con el caché/default */ }
+    finally { clearTimeout(timeoutId); }
+  }
 
   // Arma los chips de filtro, las tarjetas de "Performance individual" y
   // las tarjetas de carga manual a partir de SETTERS — antes estaban
@@ -2694,6 +2767,11 @@
     loadingBrand.classList.remove('corner');
     loadingOverlay.classList.remove('fading');
     loadingOverlay.classList.add('show');
+
+    // Chequea si el equipo (Configuración → Setters activos) cambió desde
+    // otro dispositivo — si es así, recarga acá mismo, antes de que se
+    // arme nada del dashboard con la lista vieja.
+    await syncTeamSettersFromBackend();
 
     buildDemoData();
     await Promise.all([ loadLiveData(), delay(1600) ]);
@@ -4365,18 +4443,110 @@
     });
   }
 
-  // Delete setter rows
-  document.querySelectorAll('.del-btn').forEach(btn => {
-    btn.addEventListener('click', function(){
-      this.closest('.setter-row').remove();
+  // ===== Config → Setters del equipo (real: se guarda para todos, vía
+  // Apps Script/PropertiesService — ver handleSaveTeamSetters en el .gs) =====
+  function slugifyId(nombre){
+    let base = nombre.toLowerCase().trim()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // saca acentos
+      .replace(/[^a-z0-9]+/g, '');
+    if(!base) base = 'setter';
+    let id = base, n = 2;
+    while(SETTERS.some(s => s.id === id)) { id = base + n; n++; }
+    return id;
+  }
+
+  function buildColorPalette(container, selectedColor, onPick){
+    container.innerHTML = '';
+    SETTER_COLOR_PALETTE.forEach(color => {
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'color-swatch' + (color === selectedColor ? ' selected' : '');
+      sw.style.background = color;
+      sw.title = color;
+      sw.addEventListener('click', () => onPick(color));
+      container.appendChild(sw);
     });
-  });
-  document.querySelector('.add-btn').addEventListener('click', () => {
-    const input = document.querySelector('.add-row input');
-    if(input.value.trim()){
-      showToast('Setter "' + input.value.trim() + '" agregado');
-      input.value = '';
+  }
+
+  async function saveTeamSettersRemote(nuevaLista){
+    showToast('Guardando…');
+    try {
+      const res = await fetch(WRITE_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({ action:'saveteamsetters', setters: nuevaLista })
+      });
+      const data = await res.json().catch(() => null);
+      if(!data || data.status !== 'ok') throw new Error((data && data.message) || 'Error al guardar');
+      localStorage.setItem(TEAM_SETTERS_CACHE_KEY, JSON.stringify(nuevaLista));
+      showToast('✅ Guardado — recargando…');
+      setTimeout(() => location.reload(), 700);
+    } catch(e) {
+      showToast('⚠️ No se pudo guardar: ' + e.message);
     }
+  }
+
+  function renderTeamSettersConfig(){
+    const wrap = document.getElementById('teamSettersList');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    SETTERS.forEach(s => {
+      const activo = s.activo !== false;
+      const row = document.createElement('div');
+      row.className = 'team-setter-row' + (activo ? '' : ' inactivo');
+
+      const left = document.createElement('div');
+      left.className = 'left';
+      left.innerHTML = `<span class="cdot" style="width:9px;height:9px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.nombre}${activo ? '' : ' <span class="tsr-inactiva-tag">· inactiva/o</span>'}`;
+      row.appendChild(left);
+
+      const palette = document.createElement('div');
+      palette.className = 'color-palette';
+      buildColorPalette(palette, s.color, (color) => {
+        if(color === s.color) return;
+        saveTeamSettersRemote(SETTERS.map(x => x.id === s.id ? { ...x, color } : x));
+      });
+      row.appendChild(palette);
+
+      const btn = document.createElement('button');
+      if(activo){
+        btn.className = 'del-btn';
+        btn.textContent = 'Eliminar';
+        btn.addEventListener('click', () => {
+          if(!confirm(`¿Pasar a "${s.nombre}" a inactivo? Su historial queda intacto, pero deja de aparecer para cargar datos nuevos.`)) return;
+          saveTeamSettersRemote(SETTERS.map(x => x.id === s.id ? { ...x, activo:false } : x));
+        });
+      } else {
+        btn.className = 'reactivar-btn';
+        btn.textContent = 'Reactivar';
+        btn.addEventListener('click', () => {
+          saveTeamSettersRemote(SETTERS.map(x => x.id === s.id ? { ...x, activo:true } : x));
+        });
+      }
+      row.appendChild(btn);
+
+      wrap.appendChild(row);
+    });
+  }
+  renderTeamSettersConfig();
+
+  // "+ Agregar": arranca con el primer color de la paleta que todavía no
+  // esté en uso (si hay alguno libre), para que no repita color a propósito.
+  let newSetterColor = SETTER_COLOR_PALETTE.find(c => !SETTERS.some(s => s.color === c)) || SETTER_COLOR_PALETTE[0];
+  function renderNewSetterPalette(){
+    buildColorPalette(document.getElementById('newSetterPalette'), newSetterColor, (color) => {
+      newSetterColor = color;
+      renderNewSetterPalette();
+    });
+  }
+  renderNewSetterPalette();
+
+  document.getElementById('newSetterAddBtn').addEventListener('click', () => {
+    const input = document.getElementById('newSetterNombre');
+    const nombre = input.value.trim();
+    if(!nombre) return;
+    const nuevo = { id: slugifyId(nombre), nombre, color: newSetterColor, activo: true };
+    input.value = '';
+    saveTeamSettersRemote([...SETTERS, nuevo]);
   });
 
   // ===== LIVE DATA FROM GOOGLE SHEETS =====

@@ -86,6 +86,8 @@ function doPost(e) {
     if (action === 'fetchhyros') return handleFetchHyros(body);
     if (action === 'gettagcolors') return handleGetTagColors(body);
     if (action === 'savetagcolors') return handleSaveTagColors(body);
+    if (action === 'getteamsetters') return handleGetTeamSetters(body);
+    if (action === 'saveteamsetters') return handleSaveTeamSetters(body);
 
     // acción por defecto: guardar métricas (compatibilidad con versiones anteriores)
     return handleSaveMetrics(body);
@@ -724,6 +726,30 @@ function handleSaveTagColors(body) {
   if (!pageId) return jsonOut({ status: "error", message: "Falta pageId" });
   const tagColors = Array.isArray(body.tagColors) ? body.tagColors : [];
   PropertiesService.getScriptProperties().setProperty('tagcolors_' + pageId, JSON.stringify(tagColors));
+  return jsonOut({ status: "ok" });
+}
+
+// ===== EQUIPO DE SETTERS (Configuración → Setters activos) =====
+// Mismo patrón que el diagrama/contenido compartido de arriba: un solo
+// bloque de JSON en las Propiedades del Script. Cada elemento es
+// { id, nombre, color, activo }. El dashboard lee esto al cargar (antes de
+// mostrar nada) y, si hay algo guardado, reemplaza al array SETTERS de
+// fábrica — así agregar/sacar gente o cambiarle el color queda igual para
+// cualquiera que abra el dashboard, no solo en el navegador de quien lo
+// edita. "Eliminar" en la UI en realidad guarda activo:false (nunca borra
+// el id de la lista) para no perder el historial de esa persona en los
+// gráficos — mismo criterio que ya se usaba a mano con Valeria/Franco.
+function handleGetTeamSetters(body) {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('team_setters');
+  const setters = raw ? JSON.parse(raw) : null; // null = todavía no se guardó nada, el dashboard usa su default de fábrica
+  return jsonOut({ status: "ok", setters });
+}
+
+function handleSaveTeamSetters(body) {
+  const setters = Array.isArray(body.setters) ? body.setters : [];
+  if (!setters.length) return jsonOut({ status: "error", message: "La lista no puede quedar vacía" });
+  PropertiesService.getScriptProperties().setProperty('team_setters', JSON.stringify(setters));
   return jsonOut({ status: "ok" });
 }
 
