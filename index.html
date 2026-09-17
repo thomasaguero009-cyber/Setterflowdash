@@ -1692,27 +1692,16 @@
         </div>
       </div>
 
-      <div class="section-label" id="nav-agendas-cuenta" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span>📞 Agendas por cuenta</span>
-        <div class="rank-toggle vista-toggle" id="agendasCuentaToggle" style="margin-bottom:0;">
-          <div class="rt-btn" data-vista="hoy">Hoy</div>
-          <div class="rt-btn active" data-vista="mes">Este mes</div>
-        </div>
-      </div>
+      <div class="section-label" id="nav-agendas-cuenta">📞 Agendas por cuenta</div>
       <div class="chart-panel">
-        <div class="tracker-grid" id="agendasCuentaGrid">
-          <div class="tracker-card agendas">
-            <div class="tl">ct03 · tino.mossu</div>
-            <div class="tv" id="ac-ct03">-</div>
-          </div>
-          <div class="tracker-card agendas">
-            <div class="tl">ct15 · teotinivelli</div>
-            <div class="tv" id="ac-ct15">-</div>
-          </div>
-          <div class="tracker-card agendas">
-            <div class="tl">ct23 · gisenriquez.m</div>
-            <div class="tv" id="ac-ct23">-</div>
-          </div>
+        <div class="chip-row">
+          <div class="setter-chip active-chip" style="border-color:#34d399;color:#34d399"><span class="cdot" style="background:#34d399"></span>CT03 · TINO.MOSSU</div>
+          <div class="setter-chip active-chip" style="border-color:#f0a63f;color:#f0a63f"><span class="cdot" style="background:#f0a63f"></span>CT15 · TEOTINIVELLI</div>
+          <div class="setter-chip active-chip" style="border-color:#22d3ee;color:#22d3ee"><span class="cdot" style="background:#22d3ee"></span>CT23 · GISENRIQUEZ.M</div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="agendasCuentaChart"></svg>
+          <div class="chart-tooltip" id="agendasCuentaTooltip"></div>
         </div>
         <div class="data-status" id="agendasCuentaStatus">Cargando…</div>
       </div>
@@ -4947,7 +4936,7 @@
     if(recuentoOk) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
-    drawAgendasPorCuenta();
+    drawAgendasCuentaChart();
     drawVentasPanel();
     renderMatematicaDelExito();
     renderEstrellasCharts();
@@ -6247,49 +6236,154 @@
 
   // ===== "Agendas por cuenta" (ct03/ct15/ct23) — mismo dato de Fuentes que
   // el panel de arriba, pero agrupado SOLO por cuenta (sumando todos los
-  // canales) y filtrado a estas 3 cuentas puntuales. Usa agendas reales,
-  // no leads (a diferencia de drawFuentePanel, que por pedido muestra leads
-  // bajo el botón "Agendas"). =====
+  // canales), filtrado a estas 3 cuentas puntuales, y día por día (no
+  // total del rango) para graficar una tendencia como en Métricas-Setters.
+  // Usa agendas reales, no leads (a diferencia de drawFuentePanel, que por
+  // pedido muestra leads bajo el botón "Agendas"). =====
   const AGENDAS_CUENTA_MAP = { ct03: 'tino.mossu', ct15: 'teotinivelli', ct23: 'gisenriquez.m' };
-  let agendasCuentaVista = 'mes';
+  const AGENDAS_CUENTA_COLORS = { ct03: '#34d399', ct15: '#f0a63f', ct23: '#22d3ee' };
+  let agendasCuentaRawCache = null; // { ts, filas } — filas crudas de parseFuentesSheet, día por día
 
-  function agendasCuentaRango(){
-    const hoy = new Date();
-    if (agendasCuentaVista === 'hoy') return { desde: hoy, hasta: hoy };
-    const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
-    return { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
+  async function fetchAgendasCuentaFilas(){
+    if(agendasCuentaRawCache && (Date.now() - agendasCuentaRawCache.ts) < HYROS_CACHE_MS){
+      return agendasCuentaRawCache.filas;
+    }
+    const text = await safeFetchText(FUENTES_SHEET_URL);
+    const filas = parseFuentesSheet(text);
+    agendasCuentaRawCache = { ts: Date.now(), filas };
+    return filas;
   }
 
-  function drawAgendasPorCuenta(){
+  async function drawAgendasCuentaChart(){
+    const svg = document.getElementById('agendasCuentaChart');
     const status = document.getElementById('agendasCuentaStatus');
-    if(!status) return;
+    if(!svg || !status) return;
     status.textContent = 'Cargando…';
-    fetchFuenteRange(agendasCuentaRango()).then(resp => {
-      const fuentes = resp.fuentes || {};
-      const totales = {};
-      Object.keys(AGENDAS_CUENTA_MAP).forEach(ct => { totales[ct] = 0; });
-      Object.values(fuentes).forEach(f => {
-        const ct = Object.keys(AGENDAS_CUENTA_MAP).find(k => AGENDAS_CUENTA_MAP[k] === f.cuenta);
-        if(ct) totales[ct] += f.agendas;
+    try {
+      const filas = await fetchAgendasCuentaFilas();
+      const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
+      const desde = new Date(yyyy, mm, 1, 0, 0, 0);
+      const hasta = new Date(yyyy, mm + 1, 0, 23, 59, 59);
+      const dias = hasta.getDate();
+      const dates = Array.from({length: dias}, (_, i) => {
+        const d = new Date(yyyy, mm, i + 1);
+        return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
       });
-      Object.keys(AGENDAS_CUENTA_MAP).forEach(ct => {
-        const el = document.getElementById('ac-' + ct);
-        if(el) el.textContent = fmtInt(totales[ct]);
+      const cuentaKeys = Object.keys(AGENDAS_CUENTA_MAP);
+      const series = {};
+      cuentaKeys.forEach(ct => { series[ct] = new Array(dias).fill(0); });
+      filas.forEach(f => {
+        if(f.setter) return; // solo filas agregadas, no el desglose por setter
+        if(f.fecha < desde || f.fecha > hasta) return;
+        const ct = cuentaKeys.find(k => AGENDAS_CUENTA_MAP[k] === f.cuenta);
+        if(!ct) return;
+        series[ct][f.fecha.getDate() - 1] += f.agendas;
       });
-      status.textContent = agendasCuentaVista === 'hoy' ? 'Hoy' : 'Este mes';
-    }).catch(err => {
-      status.textContent = '⚠️ ' + err.message;
-    });
-  }
 
-  document.querySelectorAll('#agendasCuentaToggle .rt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#agendasCuentaToggle .rt-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      agendasCuentaVista = btn.dataset.vista;
-      drawAgendasPorCuenta();
-    });
-  });
+      svg.innerHTML = '';
+      svg.classList.remove('fx-refade');
+      void svg.offsetWidth;
+      svg.classList.add('fx-refade');
+
+      const n = dias;
+      const W = 1000, H = 280, padL = 40, padB = 24, padT = 10;
+      const maxVal = Math.max(1, ...cuentaKeys.flatMap(ct => series[ct]));
+
+      for(let g=0; g<=5; g++){
+        const y = padT + (H-padT-padB) * (1 - g/5);
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', padL); line.setAttribute('x2', W-10);
+        line.setAttribute('y1', y); line.setAttribute('y2', y);
+        line.setAttribute('stroke', '#1e1e2a'); line.setAttribute('stroke-width', '1');
+        svg.appendChild(line);
+        const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+        label.setAttribute('x', 4); label.setAttribute('y', y+4);
+        label.setAttribute('fill', '#62626f'); label.setAttribute('font-size', '11');
+        label.textContent = Math.round(maxVal * g/5);
+        svg.appendChild(label);
+      }
+
+      function xAt(i){ return padL + (W-padL-20) * (n<=1 ? 0 : i/(n-1)); }
+      function yAt(v){ return padT + (H-padT-padB) * (1 - v/maxVal); }
+
+      function smoothPath(pts){
+        if(pts.length < 3){
+          return pts.map((p,i) => (i===0?'M':'L') + p[0] + ',' + p[1]).join(' ');
+        }
+        let d = `M ${pts[0][0]},${pts[0][1]}`;
+        for(let i=0;i<pts.length-1;i++){
+          const p0 = pts[i-1] || pts[i];
+          const p1 = pts[i];
+          const p2 = pts[i+1];
+          const p3 = pts[i+2] || p2;
+          const cp1x = p1[0] + (p2[0]-p0[0])/6;
+          const cp1y = p1[1] + (p2[1]-p0[1])/6;
+          const cp2x = p2[0] - (p3[0]-p1[0])/6;
+          const cp2y = p2[1] - (p3[1]-p1[1])/6;
+          d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`;
+        }
+        return d;
+      }
+
+      cuentaKeys.forEach(ct => {
+        const pts = series[ct].map((v,i) => [xAt(i), yAt(v)]);
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', smoothPath(pts));
+        path.setAttribute('fill','none');
+        path.setAttribute('stroke', AGENDAS_CUENTA_COLORS[ct]);
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('stroke-linecap','round');
+        path.setAttribute('stroke-linejoin','round');
+        svg.appendChild(path);
+        pts.forEach(([x,y]) => {
+          const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r','3');
+          c.setAttribute('fill', '#08080d'); c.setAttribute('stroke', AGENDAS_CUENTA_COLORS[ct]); c.setAttribute('stroke-width','1.5');
+          svg.appendChild(c);
+        });
+      });
+
+      const tooltip = document.getElementById('agendasCuentaTooltip');
+      for(let i=0;i<n;i++){
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const x = xAt(i);
+        const colW = n>1 ? (W-padL-20)/(n-1) : W;
+        hit.setAttribute('x', x - colW/2);
+        hit.setAttribute('y', 0);
+        hit.setAttribute('width', colW);
+        hit.setAttribute('height', H);
+        hit.setAttribute('fill', 'transparent');
+        hit.style.cursor = 'pointer';
+        hit.addEventListener('mouseenter', () => showTooltip(i, x));
+        hit.addEventListener('mousemove', () => showTooltip(i, x));
+        hit.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+        svg.appendChild(hit);
+      }
+
+      function showTooltip(i, x){
+        const rows = cuentaKeys.map(ct => {
+          return `<div class="tt-row"><span class="tt-name"><span class="cdot" style="background:${AGENDAS_CUENTA_COLORS[ct]}"></span>${ct} · ${AGENDAS_CUENTA_MAP[ct]}</span><span class="tt-val" style="color:${AGENDAS_CUENTA_COLORS[ct]}">${Math.round(series[ct][i])}</span></div>`;
+        }).join('');
+        const total = cuentaKeys.reduce((s,ct) => s + series[ct][i], 0);
+        tooltip.innerHTML = `
+          <div class="tt-day"><span class="cdot"></span>Día ${dates[i]}</div>
+          ${rows}
+          <div class="tt-row total"><span class="tt-name">Total</span><span class="tt-val" style="color:var(--green)">${Math.round(total)}</span></div>
+        `;
+        const wrapWidth = svg.parentElement.clientWidth;
+        const pxRatio = wrapWidth / W;
+        let left = x * pxRatio + 14;
+        if(left + 200 > wrapWidth) left = x * pxRatio - 214;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = '20px';
+        tooltip.classList.add('show');
+      }
+
+      status.textContent = 'Mes activo';
+    } catch(err) {
+      status.textContent = '⚠️ ' + err.message;
+    }
+  }
 
   // Mismo panel de "Fuentes" pero filtrado a UN solo setter (usado dentro
   // de "Ver perfil"), con su PROPIO rango de fechas (vpFuenteRango, más
@@ -7083,7 +7177,7 @@
   // una se re-registra sola en su propia función de render (para que la
   // animación de reloj se repita en cada actualización de datos, no solo
   // la primera vez).
-  ['trendChart', 'proyeccionChart']
+  ['trendChart', 'proyeccionChart', 'agendasCuentaChart']
     .forEach(id => observarParaRevelar(document.getElementById(id)));
 
   document.querySelectorAll('#fuenteToggle .rt-btn').forEach(btn => {
