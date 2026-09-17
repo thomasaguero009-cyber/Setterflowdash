@@ -1672,28 +1672,29 @@
         </div>
       </div>
 
-      <div class="section-label" id="nav-metricas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <span>📈 Métricas - Setters</span>
-        <div class="rank-toggle vista-toggle" id="metricasVistaToggle" style="margin-bottom:0;">
-          <div class="rt-btn active" data-vista="diario">Diario</div>
-          <div class="rt-btn" data-vista="semanal">Semanal</div>
+      <div class="section-label" id="nav-agendas-cuenta" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>📞 Agendas por cuenta</span>
+        <div class="rank-toggle vista-toggle" id="agendasCuentaToggle" style="margin-bottom:0;">
+          <div class="rt-btn" data-vista="hoy">Hoy</div>
+          <div class="rt-btn active" data-vista="mes">Este mes</div>
         </div>
       </div>
       <div class="chart-panel">
-        <div class="chip-row" id="chip-row">
-          <!-- Los chips de cada setter se generan en JS desde el array SETTERS (buscá "renderSettersDom") — este bloque queda vacío a propósito. -->
+        <div class="tracker-grid" id="agendasCuentaGrid">
+          <div class="tracker-card agendas">
+            <div class="tl">ct03 · tino.mossu</div>
+            <div class="tv" id="ac-ct03">-</div>
+          </div>
+          <div class="tracker-card agendas">
+            <div class="tl">ct15 · teotinivelli</div>
+            <div class="tv" id="ac-ct15">-</div>
+          </div>
+          <div class="tracker-card agendas">
+            <div class="tl">ct23 · gisenriquez.m</div>
+            <div class="tv" id="ac-ct23">-</div>
+          </div>
         </div>
-        <div class="rank-toggle metric-toggle">
-          <div class="rt-btn active">Agendas</div>
-          <div class="rt-btn">Seguimientos</div>
-          <div class="rt-btn">Cash</div>
-          <div class="rt-btn">Horas</div>
-        </div>
-        <div class="chart-wrap">
-          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
-          <div class="chart-tooltip" id="chartTooltip"></div>
-        </div>
-        <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
+        <div class="data-status" id="agendasCuentaStatus">Cargando…</div>
       </div>
 
       <div class="section-label" id="nav-ventas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -1882,6 +1883,30 @@
 
         <div class="section-label" style="margin-top:24px;">Meta diaria por setter (repartida en partes iguales, para lo que queda del mes)</div>
         <div class="perf-grid" id="me-setters-grid"></div>
+      </div>
+
+      <div class="section-label" id="nav-metricas" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <span>📈 Métricas - Setters</span>
+        <div class="rank-toggle vista-toggle" id="metricasVistaToggle" style="margin-bottom:0;">
+          <div class="rt-btn active" data-vista="diario">Diario</div>
+          <div class="rt-btn" data-vista="semanal">Semanal</div>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="chip-row" id="chip-row">
+          <!-- Los chips de cada setter se generan en JS desde el array SETTERS (buscá "renderSettersDom") — este bloque queda vacío a propósito. -->
+        </div>
+        <div class="rank-toggle metric-toggle">
+          <div class="rt-btn active">Agendas</div>
+          <div class="rt-btn">Seguimientos</div>
+          <div class="rt-btn">Cash</div>
+          <div class="rt-btn">Horas</div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart chart-reveal" viewBox="0 0 1000 280" preserveAspectRatio="none" id="trendChart"></svg>
+          <div class="chart-tooltip" id="chartTooltip"></div>
+        </div>
+        <div class="data-status" id="dataStatus">Cargando datos del Google Sheet…</div>
       </div>
 
       <div class="section-label" id="nav-setters">⚡ Performance individual (Ayer)</div>
@@ -4752,6 +4777,7 @@
     if(recuentoOk) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
+    drawAgendasPorCuenta();
     drawVentasPanel();
     renderMatematicaDelExito();
     renderEstrellasCharts();
@@ -6048,6 +6074,52 @@
       panel.innerHTML = `<div class="rank-loading">⚠️ ${err.message}</div>`;
     });
   }
+
+  // ===== "Agendas por cuenta" (ct03/ct15/ct23) — mismo dato de Fuentes que
+  // el panel de arriba, pero agrupado SOLO por cuenta (sumando todos los
+  // canales) y filtrado a estas 3 cuentas puntuales. Usa agendas reales,
+  // no leads (a diferencia de drawFuentePanel, que por pedido muestra leads
+  // bajo el botón "Agendas"). =====
+  const AGENDAS_CUENTA_MAP = { ct03: 'tino.mossu', ct15: 'teotinivelli', ct23: 'gisenriquez.m' };
+  let agendasCuentaVista = 'mes';
+
+  function agendasCuentaRango(){
+    const hoy = new Date();
+    if (agendasCuentaVista === 'hoy') return { desde: hoy, hasta: hoy };
+    const yyyy = Number(ACTIVE_MONTH_YYYY), mm = Number(ACTIVE_MONTH_MM) - 1;
+    return { desde: new Date(yyyy, mm, 1), hasta: new Date(yyyy, mm + 1, 0) };
+  }
+
+  function drawAgendasPorCuenta(){
+    const status = document.getElementById('agendasCuentaStatus');
+    if(!status) return;
+    status.textContent = 'Cargando…';
+    fetchFuenteRange(agendasCuentaRango()).then(resp => {
+      const fuentes = resp.fuentes || {};
+      const totales = {};
+      Object.keys(AGENDAS_CUENTA_MAP).forEach(ct => { totales[ct] = 0; });
+      Object.values(fuentes).forEach(f => {
+        const ct = Object.keys(AGENDAS_CUENTA_MAP).find(k => AGENDAS_CUENTA_MAP[k] === f.cuenta);
+        if(ct) totales[ct] += f.agendas;
+      });
+      Object.keys(AGENDAS_CUENTA_MAP).forEach(ct => {
+        const el = document.getElementById('ac-' + ct);
+        if(el) el.textContent = fmtInt(totales[ct]);
+      });
+      status.textContent = agendasCuentaVista === 'hoy' ? 'Hoy' : 'Este mes';
+    }).catch(err => {
+      status.textContent = '⚠️ ' + err.message;
+    });
+  }
+
+  document.querySelectorAll('#agendasCuentaToggle .rt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#agendasCuentaToggle .rt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      agendasCuentaVista = btn.dataset.vista;
+      drawAgendasPorCuenta();
+    });
+  });
 
   // Mismo panel de "Fuentes" pero filtrado a UN solo setter (usado dentro
   // de "Ver perfil"), con su PROPIO rango de fechas (vpFuenteRango, más
