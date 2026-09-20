@@ -1,4 +1,4 @@
-# SetterFlow · Factor Studios
+# SetterFlow
 
 Dashboard de performance para el equipo de setters, con datos en vivo desde Google Sheets.
 

@@ -1,5 +1,5 @@
 /**
- * SetterFlow · Factor Studios
+ * SetterFlow
  * Recibe los datos del formulario de Métricas y los escribe en la hoja
  * individual de cada setter (THOMI, FLOR, VALERIA, FRANCO).
  * También maneja registro/login de usuarios individuales para Métricas
