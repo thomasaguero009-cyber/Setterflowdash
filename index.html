@@ -2584,6 +2584,14 @@
   let ACTIVE_MONTH_MM = '06';   // se actualiza según el mes elegido en la pantalla de selección
   let ACTIVE_MONTH_YYYY = '2026';
 
+  // Un mes que todavía no arrancó (ej. Octubre estando en Septiembre) se ve
+  // vacío del todo: ni el Sheet, ni la vista Semanal, ni el recuento de
+  // "ayer" (que es del mes anterior). Apenas llega el día 1 deja de ser
+  // "futuro" y carga normal solo, sin tocar nada.
+  function esMesFuturo(){
+    return new Date(Number(ACTIVE_MONTH_YYYY), Number(ACTIVE_MONTH_MM) - 1, 1) > new Date();
+  }
+
   // ===== NOMBRES PARA MOSTRAR (cada quien puede cambiar el suyo desde su perfil) =====
   // Los 4 identificadores internos (thomi/flor/valeria/franco) quedan fijos porque
   // así están armadas las columnas del Google Sheet — pero lo que se VE en pantalla
@@ -4876,8 +4884,19 @@
 
   async function loadLiveData(){
     let setterOk = false, dashOk = false, recuentoOk = false;
+    const mesFuturo = esMesFuturo();
 
-    try{
+    if(mesFuturo){
+      SETTER_KEYS.forEach(k => {
+        setterSeries[k] = buildZeroSeries([]);
+        setterSeriesCompleto[k] = buildZeroSeries([]);
+        cashHistoricoPorSetter[k] = 0;
+      });
+      recuentoAyer = {};
+      setterOk = true; // evita que caiga a la demo random
+    }
+
+    if(!mesFuturo) try{
       const texts = await Promise.all(SETTER_SHEET_URLS.map(safeFetchText));
       const parsedList = texts.map(t => parseSetterSheet(t)).filter(Boolean);
       const bySetter = {};
@@ -4922,21 +4941,23 @@
     // de "falta uno".
     if(!setterOk){ buildDemoData(); setterSeriesCompleto = setterSeries; }
 
-    try{
+    if(!mesFuturo) try{
       const recText = await safeFetchText(RECUENTO_URL);
       const rec = parseRecuento(recText);
       if(rec){ recuentoAyer = rec; recuentoOk = true; }
     } catch(err){ /* ignore */ }
 
     dataSource = setterOk ? 'live' : 'demo';
-    document.getElementById('dataStatus').textContent = setterOk
-      ? '✅ Conectado en vivo al Google Sheet'
-      : '⚠️ No se pudo conectar al Sheet — mostrando datos de ejemplo';
+    document.getElementById('dataStatus').textContent = mesFuturo
+      ? '📭 Mes sin arrancar — todavía no hay datos'
+      : setterOk
+        ? '✅ Conectado en vivo al Google Sheet'
+        : '⚠️ No se pudo conectar al Sheet — mostrando datos de ejemplo';
 
     renderTrackerCards();
     const activeRankBtn = document.querySelector('.rank-toggle .rt-btn.active');
     renderRankingPanels(activeRankBtn ? activeRankBtn.dataset.rank : 'hoy');
-    if(recuentoOk) updatePerformanceCards();
+    if(recuentoOk || mesFuturo) updatePerformanceCards();
     drawChart();
     drawFuentePanel();
     drawAgendasCuentaChart();
@@ -7216,6 +7237,7 @@
 
   function checkMissingYesterday(){
     const banner = document.getElementById('reminderBanner');
+    if(esMesFuturo()){ banner.style.display = 'none'; return; }
     const missing = SETTER_KEYS.filter(esSetterActivo).filter(k => {
       const d = recuentoAyer[k];
       if(!d) return true;
