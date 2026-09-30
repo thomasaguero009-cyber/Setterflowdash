@@ -2584,12 +2584,22 @@
   let ACTIVE_MONTH_MM = '06';   // se actualiza según el mes elegido en la pantalla de selección
   let ACTIVE_MONTH_YYYY = '2026';
 
-  // Un mes que todavía no arrancó (ej. Octubre estando en Septiembre) se ve
+  // Un mes que todavía no arrancó (ej. Noviembre estando en Septiembre) se ve
   // vacío del todo: ni el Sheet, ni la vista Semanal, ni el recuento de
   // "ayer" (que es del mes anterior). Apenas llega el día 1 deja de ser
   // "futuro" y carga normal solo, sin tocar nada.
   function esMesFuturo(){
     return new Date(Number(ACTIVE_MONTH_YYYY), Number(ACTIVE_MONTH_MM) - 1, 1) > new Date();
+  }
+
+  // Octubre 2026 queda sin cargar NADA el mes ENTERO — pedido explícito,
+  // no solo hasta que arranque (esMesFuturo ya no alcanza una vez que
+  // llega el 1° de octubre). A diferencia de esMesFuturo, esto no se
+  // "destraba" solo — sigue bloqueado los 31 días. Noviembre en adelante
+  // vuelve a cargar normal apenas arranca, como cualquier otro mes.
+  function esMesBloqueado(){
+    if(ACTIVE_MONTH_MM === '10' && ACTIVE_MONTH_YYYY === '2026') return true;
+    return esMesFuturo();
   }
 
   // ===== NOMBRES PARA MOSTRAR (cada quien puede cambiar el suyo desde su perfil) =====
@@ -4884,7 +4894,7 @@
 
   async function loadLiveData(){
     let setterOk = false, dashOk = false, recuentoOk = false;
-    const mesFuturo = esMesFuturo();
+    const mesFuturo = esMesBloqueado();
 
     if(mesFuturo){
       SETTER_KEYS.forEach(k => {
@@ -4949,7 +4959,7 @@
 
     dataSource = setterOk ? 'live' : 'demo';
     document.getElementById('dataStatus').textContent = mesFuturo
-      ? '📭 Mes sin arrancar — todavía no hay datos'
+      ? '📭 Sin datos para este mes'
       : setterOk
         ? '✅ Conectado en vivo al Google Sheet'
         : '⚠️ No se pudo conectar al Sheet — mostrando datos de ejemplo';
@@ -7237,7 +7247,7 @@
 
   function checkMissingYesterday(){
     const banner = document.getElementById('reminderBanner');
-    if(esMesFuturo()){ banner.style.display = 'none'; return; }
+    if(esMesBloqueado()){ banner.style.display = 'none'; return; }
     const missing = SETTER_KEYS.filter(esSetterActivo).filter(k => {
       const d = recuentoAyer[k];
       if(!d) return true;
