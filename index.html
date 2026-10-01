@@ -6103,6 +6103,18 @@
     const organicoMonto = document.getElementById('ventas-organico-monto');
     const mixtoMonto = document.getElementById('ventas-mixto-monto');
     if(!ventasRango.desde || !ventasRango.hasta) return;
+    if(esMesBloqueado()){
+      countEl.textContent = '0';
+      ticketEl.textContent = '$0';
+      pie.style.background = 'conic-gradient(var(--green) 0% 0%, var(--purple) 0% 0%)';
+      pie.style.maskImage = pie.style.webkitMaskImage = 'none';
+      organicoPct.textContent = '—';
+      mixtoPct.textContent = '—';
+      organicoMonto.textContent = '';
+      mixtoMonto.textContent = '';
+      status.textContent = '📭 Sin datos para este mes';
+      return;
+    }
     try{
       const text = await safeFetchText(VENTAS_SHEET_URL);
       const filas = parseVentasSheet(text);
@@ -6235,6 +6247,10 @@
 
   function drawFuentePanel(){
     const panel = document.getElementById('fuentePanel');
+    if(esMesBloqueado()){
+      panel.innerHTML = '<div class="rank-loading">📭 Sin datos para este mes</div>';
+      return;
+    }
     panel.innerHTML = '<div class="rank-loading">Cargando fuentes…</div>';
     fetchFuenteRange().then(resp => {
       const fuentes = resp.fuentes || {};
@@ -6292,6 +6308,11 @@
     const svg = document.getElementById('agendasCuentaChart');
     const status = document.getElementById('agendasCuentaStatus');
     if(!svg || !status) return;
+    if(esMesBloqueado()){
+      svg.innerHTML = '';
+      status.textContent = '📭 Sin datos para este mes';
+      return;
+    }
     status.textContent = 'Cargando…';
     try {
       const filas = await fetchAgendasCuentaFilas();
