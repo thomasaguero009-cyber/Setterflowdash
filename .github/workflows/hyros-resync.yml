@@ -1,8 +1,10 @@
 name: Hyros resync (hoy + 2 días atrás)
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # PAUSADO TODO OCTUBRE 2026 (pedido explícito). Para reactivar en
+  # noviembre: descomentar las 2 líneas de abajo.
+  # schedule:
+  #   - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 # Mismo grupo que hyros-resync-mes.yml a propósito: los dos comparten la
