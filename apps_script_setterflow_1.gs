@@ -45,8 +45,21 @@ const COLS = {
 const FIRST_DATA_ROW = 6; // fila 5 es TOTALES/PROMEDIOS
 const USERS_SHEET_NAME = "Usuarios";
 
+// Pausa total de octubre 2026 — pedido explícito: nada de SetterFlow
+// funciona ese mes (ni login, ni métricas, ni perfil, ni nada que pegue
+// acá). Usa la hora del SERVIDOR (no la del navegador de quien llama),
+// así que no se puede evitar cambiando el reloj de la compu. Se
+// desactiva sola el 1° de noviembre, no hace falta tocar nada después.
+const PAUSA_DESDE = new Date(2026, 9, 1, 0, 0, 0);
+const PAUSA_HASTA = new Date(2026, 10, 1, 0, 0, 0);
+
 function doPost(e) {
   try {
+    const ahora = new Date();
+    if (ahora >= PAUSA_DESDE && ahora < PAUSA_HASTA) {
+      return jsonOut({ status: "error", message: "SetterFlow está en pausa durante octubre. Volvé en noviembre." });
+    }
+
     const body = JSON.parse(e.postData.contents);
 
     // Aviso (webhook) de Hyros: formato distinto al de nuestra propia
